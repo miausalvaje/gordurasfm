@@ -1,0 +1,10 @@
+/server/target/
+/web/build/
+/web/.dart_tool/
+/web/.flutter-plugins*
+/dist/
+*.db
+*.db-wal
+*.db-shm
+/data/
+.env
