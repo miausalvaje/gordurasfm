@@ -18,6 +18,19 @@ api_url = "https://api.listenbrainz.org"   # (GFM_LISTENBRAINZ_API_URL)
 # Así los usuarios de Navidrome que no usan GordurasFM no notan el cambio de BaseURL.
 passthrough_unknown_tokens = true
 
+[lastfm]
+api_url = "https://ws.audioscrobbler.com/2.0/"   # (GFM_LASTFM_API_URL)
+auth_url = "https://www.last.fm/api/auth/"
+# Key de la instancia (https://www.last.fm/api/account/create). También se puede poner desde la web (admin).
+# api_key = "..."        # (GFM_LASTFM_API_KEY)
+# api_secret = "..."     # (GFM_LASTFM_API_SECRET) — mejor en variable de entorno que aquí
+import_delay_ms = 250    # pausa entre páginas al importar
+
+[enrich]
+enabled = true           # buscar portadas e ids de canciones en Navidrome
+interval_secs = 60
+delay_ms = 100
+
 [forward]
 base_delay_secs = 30        # primer reintento; se dobla en cada fallo
 max_delay_secs = 21600      # tope: 6 h

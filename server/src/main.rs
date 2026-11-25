@@ -1,4 +1,9 @@
 use anyhow::{Context, Result};
+
+// El malloc de musl es lento y fragmenta mucho con cargas grandes (importaciones): mimalloc.
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use gordurasfm::{config::Config, crypto::Crypto, db, state};
 use tracing_subscriber::EnvFilter;
 

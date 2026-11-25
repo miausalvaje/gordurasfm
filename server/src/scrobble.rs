@@ -51,6 +51,8 @@ pub struct Listen {
     pub client: Option<String>,
     pub source: Source,
     pub raw: Option<Value>,
+    /// Portada externa (Last.fm) por si Navidrome no tiene el álbum.
+    pub cover_url: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -62,6 +64,24 @@ pub enum Outcome {
 
 /// Guarda una escucha. Todo va en una transacción: escucha + filas de la cola de reenvío.
 pub async fn ingest(db: &Db, user_id: i64, l: &Listen) -> sqlx::Result<Outcome> {
+    let mut tx = db.begin().await?;
+    let out = ingest_tx(&mut tx, user_id, l).await?;
+    tx.commit().await?;
+    Ok(out)
+}
+
+/// Guarda muchas escuchas en una sola transacción (importaciones): mucho más rápido.
+pub async fn ingest_many(db: &Db, user_id: i64, listens: &[Listen]) -> sqlx::Result<Vec<Outcome>> {
+    let mut tx = db.begin().await?;
+    let mut out = Vec::with_capacity(listens.len());
+    for l in listens {
+        out.push(ingest_tx(&mut tx, user_id, l).await?);
+    }
+    tx.commit().await?;
+    Ok(out)
+}
+
+async fn ingest_tx(tx: &mut Transaction<'_, Sqlite>, user_id: i64, l: &Listen) -> sqlx::Result<Outcome> {
     let artist = normalize::display(&l.artist);
     let track = normalize::display(&l.track);
     if artist.is_empty() || track.is_empty() {
@@ -74,19 +94,19 @@ pub async fn ingest(db: &Db, user_id: i64, l: &Listen) -> sqlx::Result<Outcome> 
         return Ok(Outcome::Ignored("pista de menos de 30 s"));
     }
 
-    let mut tx = db.begin().await?;
-    let artist_id = upsert_artist(&mut tx, &artist, l.artist_mbid.as_deref()).await?;
-    let track_id = upsert_track(&mut tx, artist_id, &track, l.duration_ms, l.recording_mbid.as_deref()).await?;
+    let artist_id = upsert_artist(tx, &artist, l.artist_mbid.as_deref()).await?;
+    let track_id = upsert_track(tx, artist_id, &track, l.duration_ms, l.recording_mbid.as_deref()).await?;
     let album_id = match l.album.as_deref().map(normalize::display).filter(|a| !a.is_empty()) {
         Some(album) => {
             let aa = l.album_artist.as_deref().map(normalize::display).filter(|a| !a.is_empty());
             let album_artist_id = match aa {
                 Some(name) if normalize::key(&name) != normalize::key(&artist) => {
-                    upsert_artist(&mut tx, &name, None).await?
+                    upsert_artist(tx, &name, None).await?
                 }
                 _ => artist_id,
             };
-            Some(upsert_album(&mut tx, album_artist_id, &album, l.release_mbid.as_deref()).await?)
+            let cover = l.cover_url.as_deref().filter(|u| allowed_cover_url(u)).map(|u| format!("url:{u}"));
+            Some(upsert_album(tx, album_artist_id, &album, l.release_mbid.as_deref(), cover.as_deref()).await?)
         }
         None => None,
     };
@@ -98,10 +118,9 @@ pub async fn ingest(db: &Db, user_id: i64, l: &Listen) -> sqlx::Result<Outcome> 
     .bind(track_id)
     .bind(l.played_at - DEDUP_WINDOW_SECS)
     .bind(l.played_at + DEDUP_WINDOW_SECS)
-    .fetch_optional(&mut *tx)
+    .fetch_optional(&mut **tx)
     .await?;
     if dup.is_some() {
-        tx.commit().await?; // conserva el catálogo
         return Ok(Outcome::Duplicate);
     }
 
@@ -120,7 +139,7 @@ pub async fn ingest(db: &Db, user_id: i64, l: &Listen) -> sqlx::Result<Outcome> 
     .bind(&l.client)
     .bind(l.raw.as_ref().map(|v| v.to_string()))
     .bind(t)
-    .fetch_one(&mut *tx)
+    .fetch_one(&mut **tx)
     .await?;
 
     if l.source.forwardable() {
@@ -135,10 +154,9 @@ pub async fn ingest(db: &Db, user_id: i64, l: &Listen) -> sqlx::Result<Outcome> 
         .bind(t)
         .bind(t)
         .bind(user_id)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await?;
     }
-    tx.commit().await?;
     Ok(Outcome::Stored(id))
 }
 
@@ -178,20 +196,30 @@ async fn upsert_track(
     Ok(id)
 }
 
+/// Solo portadas https de los servidores de imágenes de Last.fm.
+pub fn allowed_cover_url(u: &str) -> bool {
+    let Some(rest) = u.strip_prefix("https://") else { return false };
+    let host = rest.split(['/', '?', ':']).next().unwrap_or("");
+    crate::lastfm::IMAGE_HOSTS.contains(&host)
+}
+
 async fn upsert_album(
     tx: &mut Transaction<'_, Sqlite>,
     artist_id: i64,
     title: &str,
     mbid: Option<&str>,
+    cover_ref: Option<&str>,
 ) -> sqlx::Result<i64> {
     let (id,): (i64,) = sqlx::query_as(
-        "INSERT INTO albums (title, title_key, artist_id, mbid) VALUES (?, ?, ?, ?) \
-         ON CONFLICT(artist_id, title_key) DO UPDATE SET mbid = COALESCE(albums.mbid, excluded.mbid) RETURNING id",
+        "INSERT INTO albums (title, title_key, artist_id, mbid, cover_ref) VALUES (?, ?, ?, ?, ?) \
+         ON CONFLICT(artist_id, title_key) DO UPDATE SET mbid = COALESCE(albums.mbid, excluded.mbid), \
+           cover_ref = COALESCE(albums.cover_ref, excluded.cover_ref) RETURNING id",
     )
     .bind(title)
     .bind(normalize::key(title))
     .bind(artist_id)
     .bind(mbid.filter(|m| !m.is_empty()))
+    .bind(cover_ref)
     .fetch_one(&mut **tx)
     .await?;
     Ok(id)
@@ -200,6 +228,14 @@ async fn upsert_album(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn solo_portadas_de_last_fm() {
+        assert!(allowed_cover_url("https://lastfm.freetls.fastly.net/i/u/300x300/x.jpg"));
+        assert!(!allowed_cover_url("http://lastfm.freetls.fastly.net/i/u/x.jpg"));
+        assert!(!allowed_cover_url("https://lastfm.freetls.fastly.net.evil.com/x.jpg"));
+        assert!(!allowed_cover_url("https://192.168.1.1/x.jpg"));
+    }
 
     fn listen(track: &str, at: i64) -> Listen {
         Listen {
@@ -215,6 +251,7 @@ mod tests {
             client: None,
             source: Source::Navidrome,
             raw: None,
+            cover_url: None,
         }
     }
 

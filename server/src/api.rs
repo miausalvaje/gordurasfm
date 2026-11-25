@@ -2,19 +2,21 @@
 
 use axum::{
     Json, Router,
-    extract::{Query, State},
-    routing::{delete, get, post, put},
+    extract::{DefaultBodyLimit, Query, State},
+    routing::{delete, get, patch, post, put},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sqlx::FromRow;
 
 use crate::{
+    admin,
     auth::{self, CurrentUser},
     connections,
     error::AppResult,
+    export, jobs, lastfm, media,
     state::{AppState, NowPlaying},
-    tokens,
+    stats, tokens,
 };
 
 pub fn router() -> Router<AppState> {
@@ -32,8 +34,26 @@ pub fn router() -> Router<AppState> {
         )
         .route("/api/v1/forward/status", get(connections::status))
         .route("/api/v1/forward/retry", post(connections::retry))
+        .route("/api/v1/connections/lastfm/start", get(lastfm::start))
+        .route("/api/v1/connections/lastfm/callback", get(lastfm::callback))
+        .route("/api/v1/connections/lastfm/key", put(lastfm::put_own_key).delete(lastfm::delete_own_key))
+        .route("/api/v1/lastfm/status", get(lastfm::status))
         .route("/api/v1/scrobbles", get(scrobbles))
         .route("/api/v1/now-playing", get(now_playing))
+        .route("/api/v1/stats", get(stats::get_stats))
+        .route("/api/v1/top/{kind}", get(stats::get_top))
+        .route("/api/v1/media/cover/{id}", get(media::cover))
+        .route("/api/v1/media/artist/{id}", get(media::artist))
+        .route("/api/v1/import/lastfm", post(jobs::start_lastfm))
+        .route("/api/v1/import/file", post(jobs::upload_file).layer(DefaultBodyLimit::max(jobs::MAX_UPLOAD)))
+        .route("/api/v1/import/jobs", get(jobs::list))
+        .route("/api/v1/import/jobs/{id}", get(jobs::get))
+        .route("/api/v1/import/jobs/{id}/cancel", post(jobs::cancel))
+        .route("/api/v1/import/jobs/{id}/resume", post(jobs::resume))
+        .route("/api/v1/export", get(export::export))
+        .route("/api/v1/admin/lastfm", get(admin::get_lastfm).put(admin::put_lastfm).delete(admin::delete_lastfm))
+        .route("/api/v1/admin/users", get(admin::users))
+        .route("/api/v1/admin/users/{id}", patch(admin::patch_user))
 }
 
 /// GET /api/v1/salud

@@ -1,6 +1,6 @@
 # API de GordurasFM
 
-Estado: fase 1. La documentación OpenAPI interactiva (`/api/docs`) llega en la fase 5; mientras tanto, esta es la referencia.
+Estado: fase 2. La documentación OpenAPI interactiva (`/api/docs`) llega en la fase 5; mientras tanto, esta es la referencia.
 
 ## Autenticación
 
@@ -43,3 +43,71 @@ Reglas al guardar: misma canción del mismo usuario a ±60 s = duplicada; pistas
 | `POST /api/v1/forward/retry` | — | `{"requeued": n}` |
 | `GET /api/v1/scrobbles` | `?limit=50&before=<unix>` | `{"total", "items":[{id, played_at, artist, track, album, duration_ms, source}], "next_before"}` |
 | `GET /api/v1/now-playing` | — | lo que está sonando o `null` |
+
+### Estadísticas (fase 2)
+
+Periodos (`period`): `this_week`, `last_week`, `this_month`, `last_month`, `this_year`, `last_year`, `all_time`. Se calculan con la zona horaria del usuario (`PATCH /api/v1/me`), con la semana desde el lunes. Los límites se calculan en hora local, así que los cambios de hora no rompen los días.
+
+| Método y ruta | Parámetros | Respuesta |
+|---|---|---|
+| `GET /api/v1/stats` | `?period=this_week&limit=10` | `{period, chart, totals, top_albums, top_tracks, top_artists}` |
+| `GET /api/v1/top/{albums\|tracks\|artists}` | `?period=&limit=50&page=1` | `{period, page, limit, total, items}` |
+
+- `period`: `{key, timezone, from, to, unit, previous}`. `from`/`to` en segundos Unix (UTC), `to` excluido. En los periodos en curso, `to` es el final del periodo. `unit`: `day` (semanas y meses), `month` (años y «siempre» de hasta 36 meses), `year`. `previous` es el periodo con el que se compara; en los periodos en curso se recorta al mismo tiempo transcurrido.
+- `chart`: `[{label, start, end, plays}]`. `label`: `2026-11-23`, `2026-11` o `2026`, en hora local.
+- `totals`: `plays`, `listening_ms` (solo cuenta las escuchas con duración conocida), `plays_without_duration`, `artists`, `albums`, `tracks`, `avg_plays_per_day`, `top_day {date, plays}`, `previous_plays`, `change_pct`, `by_hour[24]`, `by_weekday[7]` (0 = lunes).
+- Elementos de los tops: `rank` (los empates comparten posición: 1, 2, 2, 4), `plays`, `last_played` y:
+  - álbumes: `id, title, artist, cover`
+  - canciones: `id, title, artist, album, album_id, cover, duration_ms` (el álbum con el que más se ha escuchado)
+  - artistas: `id, name, image, covers[]` (hasta 4 portadas para hacer un collage si no hay imagen)
+
+### Imágenes
+
+| Método y ruta | Qué hace |
+|---|---|
+| `GET /api/v1/media/cover/{album_id}?size=300` | Portada del álbum, sacada de Navidrome (con tus permisos) o de Last.fm, y guardada en caché. Solo de álbumes que has escuchado |
+| `GET /api/v1/media/artist/{artist_id}?size=300` | Imagen del artista desde Navidrome |
+
+Tamaños: 64, 150, 300, 600 y 1000 (se redondea al más cercano). Si no hay imagen, `404`; se vuelve a intentar al día siguiente.
+
+### Last.fm
+
+| Método y ruta | Qué hace |
+|---|---|
+| `GET /api/v1/lastfm/status` | `{own_key, instance_key, available}` |
+| `GET /api/v1/connections/lastfm/start` | `{url}`: abre esa URL para autorizar en Last.fm. Al volver, redirige a `/ajustes/conexiones?lastfm=ok` (o `?lastfm=error&motivo=…`) |
+| `GET /api/v1/connections/lastfm/callback` | La usa Last.fm al volver (`state` + `token`) |
+| `PUT /api/v1/connections/lastfm/key` | `{api_key, api_secret}` propios (opcional) |
+| `DELETE /api/v1/connections/lastfm/key` | Vuelve a la key de la instancia |
+| `PATCH /api/v1/connections/lastfm` | `{forward_enabled}`. El reenvío a Last.fm **empieza apagado** |
+
+Reenvío a Last.fm: lotes de 50 (`track.scrobble`). Last.fm no acepta escuchas de hace más de 14 días: esas quedan `dead`. Si el usuario ya tiene en Navidrome el envío a Last.fm, no debe activar también este, porque se duplicarían.
+
+### Importar y exportar
+
+| Método y ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `POST /api/v1/import/lastfm` | `{"mode": "full"\|"new", "username"?}` | el trabajo. `new` trae solo lo posterior a la última escucha importada (menos 1 h de margen) |
+| `POST /api/v1/import/file` | multipart, campo `file` (hasta 200 MB, UTF-8) | `{job, format, listens, invalid}` |
+| `GET /api/v1/import/jobs` | — | los últimos 50 trabajos |
+| `GET /api/v1/import/jobs/{id}` | — | `{id, kind, status, progress_done, progress_total, stats {stored, duplicates, ignored, invalid}, error}` |
+| `POST /api/v1/import/jobs/{id}/cancel` | — | |
+| `POST /api/v1/import/jobs/{id}/resume` | — | sigue un trabajo `failed` o `cancelled` por donde iba |
+| `GET /api/v1/export?format=json\|csv` | — | todo tu historial, en un formato que se puede volver a importar |
+
+Formatos de fichero:
+- CSV de *lastfm-to-csv* sin cabecera: `artist,album,track,date` (fecha «14 Nov 2023 22:13», UTC).
+- CSV con cabecera: columnas `artist`, `track`/`name`/`title`, `album`, y fecha en `uts`/`played_at`/`timestamp`/`date`/`utc_time` (Unix, RFC 3339 o el formato de Last.fm). La exportación propia de GordurasFM también sirve.
+- JSON: lista o una escucha por línea; formato de ListenBrainz (`listened_at` + `track_metadata`) o el propio (`played_at, artist, track, album`).
+
+Solo puede haber una importación en marcha por usuario. Las escuchas importadas no se reenvían a ningún sitio.
+
+### Administración (solo admin)
+
+| Método y ruta | Qué hace |
+|---|---|
+| `GET /api/v1/admin/lastfm` | `{configured, source: "config"\|"settings"\|"none", api_key}` |
+| `PUT /api/v1/admin/lastfm` | `{api_key, api_secret}`: key de la instancia (el secret se guarda cifrado) |
+| `DELETE /api/v1/admin/lastfm` | |
+| `GET /api/v1/admin/users` | usuarios con su número de escuchas |
+| `PATCH /api/v1/admin/users/{id}` | `{is_approved?, is_admin?}`. Al quitar la aprobación se cierran sus sesiones |

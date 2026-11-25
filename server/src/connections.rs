@@ -50,6 +50,7 @@ pub async fn connect(
 ) -> AppResult<Json<Connection>> {
     match provider.as_str() {
         "listenbrainz" => connect_listenbrainz(st, user, req).await,
+        "lastfm" => Err(AppError::BadRequest("Last.fm se conecta con /api/v1/connections/lastfm/start".into())),
         _ => Err(AppError::NotFound),
     }
 }

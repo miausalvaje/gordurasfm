@@ -77,6 +77,70 @@ impl Subsonic {
         }
     }
 
+    /// Llama a un método que devuelve binario (`getCoverArt`, `stream`). Devuelve (tipo, bytes).
+    pub async fn bytes(
+        &self,
+        creds: &Creds,
+        method: &str,
+        params: &[(&str, &str)],
+    ) -> Result<(String, bytes::Bytes), SubsonicError> {
+        let url = format!("{}/rest/{}", self.base, method);
+        let mut q: Vec<(&str, &str)> = vec![
+            ("u", &creds.u),
+            ("t", &creds.t),
+            ("s", &creds.s),
+            ("v", API_VERSION),
+            ("c", CLIENT_NAME),
+            ("f", "json"),
+        ];
+        q.extend_from_slice(params);
+        let resp = self.http.get(&url).query(&q).send().await.map_err(|e| SubsonicError::Network(e.to_string()))?;
+        let status = resp.status();
+        let ctype = resp
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("application/octet-stream")
+            .to_string();
+        let body = resp.bytes().await.map_err(|e| SubsonicError::Network(e.to_string()))?;
+        if ctype.contains("json") || ctype.contains("xml") || !status.is_success() {
+            let v: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+            let code = v.pointer("/subsonic-response/error/code").and_then(Value::as_i64).unwrap_or(0);
+            let msg = v
+                .pointer("/subsonic-response/error/message")
+                .and_then(Value::as_str)
+                .unwrap_or("sin imagen")
+                .to_string();
+            return Err(if matches!(code, 40 | 41 | 44) {
+                SubsonicError::BadCredentials
+            } else {
+                SubsonicError::Api(format!("{code}: {msg}"))
+            });
+        }
+        Ok((ctype, body))
+    }
+
+    /// `search3`: devuelve (artistas, álbumes, canciones).
+    pub async fn search3(
+        &self,
+        creds: &Creds,
+        query: &str,
+        artists: u32,
+        albums: u32,
+        songs: u32,
+    ) -> Result<(Vec<Value>, Vec<Value>, Vec<Value>), SubsonicError> {
+        let (a, b, c) = (artists.to_string(), albums.to_string(), songs.to_string());
+        let r = self
+            .call(creds, "search3", &[("query", query), ("artistCount", &a), ("albumCount", &b), ("songCount", &c)])
+            .await?;
+        let list = |k: &str| match r.pointer(&format!("/searchResult3/{k}")) {
+            Some(Value::Array(v)) => v.clone(),
+            Some(o @ Value::Object(_)) => vec![o.clone()],
+            _ => vec![],
+        };
+        Ok((list("artist"), list("album"), list("song")))
+    }
+
     /// Comprueba las credenciales y devuelve los datos del usuario.
     pub async fn login(&self, creds: &Creds) -> Result<UserInfo, SubsonicError> {
         self.call(creds, "ping", &[]).await?;

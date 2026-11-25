@@ -1,18 +1,28 @@
 //! GordurasFM: estadísticas de escucha autoalojadas para Navidrome.
 
+pub mod admin;
 pub mod api;
 pub mod auth;
 pub mod config;
 pub mod connections;
 pub mod crypto;
 pub mod db;
+pub mod enrich;
 pub mod error;
+pub mod export;
 pub mod forward;
 pub mod http_client;
+pub mod import_file;
+pub mod jobs;
+pub mod lastfm;
 pub mod listenbrainz;
+pub mod media;
 pub mod normalize;
+pub mod periods;
 pub mod scrobble;
+pub mod settings;
 pub mod state;
+pub mod stats;
 pub mod subsonic;
 pub mod tokens;
 pub mod web;
@@ -49,4 +59,7 @@ pub fn app(st: AppState) -> Router {
 /// Arranca las tareas de fondo.
 pub fn spawn_background(st: &AppState) {
     tokio::spawn(forward::run(st.clone()));
+    tokio::spawn(jobs::run(st.clone()));
+    tokio::spawn(enrich::run(st.clone()));
+    tokio::spawn(db::maintenance(st.db.clone()));
 }

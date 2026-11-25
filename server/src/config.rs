@@ -23,7 +23,49 @@ pub struct Config {
     pub registration: String,
     pub navidrome: NavidromeConfig,
     pub listenbrainz: ListenBrainzConfig,
+    pub lastfm: LastfmConfig,
     pub forward: ForwardConfig,
+    pub enrich: EnrichConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct LastfmConfig {
+    pub api_url: String,
+    pub auth_url: String,
+    /// Key y secret de la instancia. También se pueden poner desde la web (admin).
+    pub api_key: Option<String>,
+    pub api_secret: Option<String>,
+    /// Pausa entre páginas al importar (ms). Last.fm pide no pasar de 5 peticiones/s.
+    pub import_delay_ms: u64,
+}
+
+impl Default for LastfmConfig {
+    fn default() -> Self {
+        Self {
+            api_url: "https://ws.audioscrobbler.com/2.0/".into(),
+            auth_url: "https://www.last.fm/api/auth/".into(),
+            api_key: None,
+            api_secret: None,
+            import_delay_ms: 250,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct EnrichConfig {
+    /// Buscar portadas e ids en Navidrome.
+    pub enabled: bool,
+    pub interval_secs: u64,
+    /// Pausa entre búsquedas en Navidrome (ms).
+    pub delay_ms: u64,
+}
+
+impl Default for EnrichConfig {
+    fn default() -> Self {
+        Self { enabled: true, interval_secs: 60, delay_ms: 100 }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -63,7 +105,9 @@ impl Default for Config {
             registration: "open".into(),
             navidrome: NavidromeConfig::default(),
             listenbrainz: ListenBrainzConfig::default(),
+            lastfm: LastfmConfig::default(),
             forward: ForwardConfig::default(),
+            enrich: EnrichConfig::default(),
         }
     }
 }
@@ -128,6 +172,15 @@ impl Config {
         if let Some(v) = get("GFM_LISTENBRAINZ_API_URL") {
             self.listenbrainz.api_url = v;
         }
+        if let Some(v) = get("GFM_LASTFM_API_URL") {
+            self.lastfm.api_url = v;
+        }
+        if let Some(v) = get("GFM_LASTFM_API_KEY") {
+            self.lastfm.api_key = Some(v);
+        }
+        if let Some(v) = get("GFM_LASTFM_API_SECRET") {
+            self.lastfm.api_secret = Some(v);
+        }
         Ok(())
     }
 
@@ -147,6 +200,14 @@ impl Config {
 
     pub fn db_path(&self) -> PathBuf {
         self.data_dir.join("gordurasfm.db")
+    }
+
+    pub fn images_dir(&self) -> PathBuf {
+        self.data_dir.join("images")
+    }
+
+    pub fn imports_dir(&self) -> PathBuf {
+        self.data_dir.join("imports")
     }
 
     pub fn key_path(&self) -> PathBuf {

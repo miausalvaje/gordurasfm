@@ -172,10 +172,12 @@ async fn submit_listens(State(st): State<AppState>, headers: HeaderMap, body: By
             },
         );
         crate::forward::spawn_now_playing(st.clone(), owner.user_id, payload[0].clone());
+        crate::forward::spawn_now_playing_lastfm(st.clone(), owner.user_id, parsed[0].clone());
         return axum::Json(json!({"status": "ok"})).into_response();
     }
 
     let mut stored = 0;
+    let turno = st.write_lock.lock().await;
     for l in &parsed {
         match scrobble::ingest(&st.db, owner.user_id, l).await {
             Ok(Outcome::Stored(_)) => stored += 1,
@@ -187,8 +189,10 @@ async fn submit_listens(State(st): State<AppState>, headers: HeaderMap, body: By
             }
         }
     }
+    drop(turno);
     if stored > 0 {
         st.forward_wake.notify_one();
+        st.enrich_wake.notify_one();
         // Lo que estaba sonando ya terminó.
         st.now_playing.write().await.remove(&owner.user_id);
     }
@@ -243,6 +247,7 @@ pub fn parse_listen(item: &Value, needs_ts: bool) -> Result<Listen, &'static str
         client,
         source: Source::Navidrome,
         raw: Some(item.clone()),
+        cover_url: None,
     })
 }
 

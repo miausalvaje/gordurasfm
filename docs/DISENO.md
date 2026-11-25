@@ -128,7 +128,7 @@ Las `playing_now` no se guardan como escucha: van a la memoria («escuchando aho
 - Guarda en `tracks`, `albums` y `artists` el id de Navidrome y el `coverArt`.
 - Proxy de medios (cookie de sesión obligatoria, nunca se manda nada de Subsonic al navegador):
   - `GET /api/v1/media/cover/:ref?size=300` → `getCoverArt`, que se guarda en `images/` (por hash de contenido) para cargas rápidas y para el Wrapped.
-  - `GET /api/v1/media/artist/:id` → `getArtistInfo2` / `getCoverArt(ar-…)`. Si no hay imagen, collage de 4 portadas generado en el servidor.
+  - `GET /api/v1/media/artist/:id` → `getArtistInfo2` / `getCoverArt(ar-…)`. Si no hay imagen, la API devuelve hasta 4 portadas (`covers`) y el collage lo hace la web (cambio de la fase 2: así el binario no necesita una librería de imágenes).
   - `GET /api/v1/media/stream/:song_id` → `stream` con `format=opus&maxBitRate=128`, admitiendo cabecera `Range`, para la música del Wrapped.
 - Canciones importadas de Last.fm que no están en Navidrome: se usa la portada de Last.fm (URL de la importación), descargada solo para lo que sale en tops y Wrapped.
 
@@ -371,4 +371,4 @@ Cada consulta de datos lleva `WHERE user_id = <sesión>`. No hay forma de pedir 
 | 4 | Wrapped: generador, foto fija, Stories, 3 pruebas, música y exportación | Generar un Wrapped real a partir de un historial importado |
 | 5 | `install.sh` + systemd, Docker multiarquitectura, guía de Termux, documentación de la API, CI | Instalación limpia en un LXC nuevo, medida de RAM y CPU reales |
 
-Estado: fase 1 terminada (2026-11-25).
+Estado: fases 1 y 2 terminadas (2026-11-26).

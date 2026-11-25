@@ -53,7 +53,8 @@ pub async fn process_due(st: &AppState) -> anyhow::Result<bool> {
     for (user_id, target) in groups {
         match target.as_str() {
             "listenbrainz" => more |= forward_listenbrainz(st, user_id).await?,
-            other => tracing::debug!(destino = other, "destino todavía sin implementar"),
+            "lastfm" => more |= forward_lastfm(st, user_id).await?,
+            other => tracing::debug!(destino = other, "destino desconocido"),
         }
     }
     Ok(more)
@@ -68,6 +69,7 @@ struct Row {
     artist: String,
     track: String,
     album: Option<String>,
+    album_artist: Option<String>,
     duration_ms: Option<i64>,
 }
 
@@ -97,13 +99,16 @@ async fn forward_listenbrainz(st: &AppState, user_id: i64) -> anyhow::Result<boo
         return Ok(false);
     };
     let rows: Vec<Row> = sqlx::query_as(
-        "SELECT q.id AS qid, q.attempts, s.played_at, s.raw, a.name AS artist, tr.title AS track, al.title AS album, s.duration_ms \
+        "SELECT q.id AS qid, q.attempts, s.played_at, s.raw, a.name AS artist, tr.title AS track, al.title AS album, \
+                aa.name AS album_artist, COALESCE(s.duration_ms, tr.duration_ms) AS duration_ms \
          FROM forward_queue q JOIN scrobbles s ON s.id = q.scrobble_id \
          JOIN artists a ON a.id = s.artist_id JOIN tracks tr ON tr.id = s.track_id LEFT JOIN albums al ON al.id = s.album_id \
-         WHERE q.user_id = ? AND q.target = 'listenbrainz' AND q.status = 'pending' AND q.next_attempt_at <= ? \
+         LEFT JOIN artists aa ON aa.id = al.artist_id \
+         WHERE q.user_id = ? AND q.target = ? AND q.status = 'pending' AND q.next_attempt_at <= ? \
          ORDER BY s.played_at LIMIT ?",
     )
     .bind(user_id)
+    .bind("listenbrainz")
     .bind(t)
     .bind(BATCH)
     .fetch_all(&st.db)
@@ -135,6 +140,156 @@ async fn forward_listenbrainz(st: &AppState, user_id: i64) -> anyhow::Result<boo
         Err(e) => {
             let refs: Vec<&Row> = rows.iter().collect();
             apply_error(st, user_id, &refs, e).await?;
+            Ok(false)
+        }
+    }
+}
+
+async fn due_rows(st: &AppState, user_id: i64, target: &str, limit: i64) -> sqlx::Result<Vec<Row>> {
+    sqlx::query_as(
+        "SELECT q.id AS qid, q.attempts, s.played_at, s.raw, a.name AS artist, tr.title AS track, al.title AS album, \
+                aa.name AS album_artist, COALESCE(s.duration_ms, tr.duration_ms) AS duration_ms \
+         FROM forward_queue q JOIN scrobbles s ON s.id = q.scrobble_id \
+         JOIN artists a ON a.id = s.artist_id JOIN tracks tr ON tr.id = s.track_id LEFT JOIN albums al ON al.id = s.album_id \
+         LEFT JOIN artists aa ON aa.id = al.artist_id \
+         WHERE q.user_id = ? AND q.target = ? AND q.status = 'pending' AND q.next_attempt_at <= ? \
+         ORDER BY s.played_at LIMIT ?",
+    )
+    .bind(user_id)
+    .bind(target)
+    .bind(now())
+    .bind(limit)
+    .fetch_all(&st.db)
+    .await
+}
+
+/// Last.fm rechaza escuchas de hace más de 14 días.
+pub const LASTFM_MAX_AGE_SECS: i64 = 14 * 86400;
+const LASTFM_BATCH: i64 = 50;
+
+async fn set_rows(
+    st: &AppState,
+    ids: &[i64],
+    status: &str,
+    error: Option<&str>,
+    next: Option<i64>,
+) -> sqlx::Result<()> {
+    let t = now();
+    let mut tx = st.db.begin().await?;
+    for id in ids {
+        sqlx::query(
+            "UPDATE forward_queue SET status = ?, attempts = attempts + 1, last_error = ?, \
+             next_attempt_at = COALESCE(?, next_attempt_at), updated_at = ? WHERE id = ?",
+        )
+        .bind(status)
+        .bind(error)
+        .bind(next)
+        .bind(t)
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await
+}
+
+async fn forward_lastfm(st: &AppState, user_id: i64) -> anyhow::Result<bool> {
+    use crate::lastfm::client::{LfmError, ScrobbleItem};
+    let t = now();
+    let Some((key, sk)) = crate::lastfm::session_for(st, user_id, true).await? else {
+        sqlx::query("UPDATE forward_queue SET status = 'paused', updated_at = ? WHERE user_id = ? AND target = 'lastfm' AND status = 'pending'")
+            .bind(t)
+            .bind(user_id)
+            .execute(&st.db)
+            .await?;
+        return Ok(false);
+    };
+    let rows = due_rows(st, user_id, "lastfm", LASTFM_BATCH).await?;
+    if rows.is_empty() {
+        return Ok(false);
+    }
+    // Las demasiado viejas no se pueden enviar: se marcan como perdidas para Last.fm.
+    let (old, fresh): (Vec<&Row>, Vec<&Row>) = rows.iter().partition(|r| r.played_at < t - LASTFM_MAX_AGE_SECS + 60);
+    if !old.is_empty() {
+        let ids: Vec<i64> = old.iter().map(|r| r.qid).collect();
+        set_rows(st, &ids, "dead", Some("Last.fm no acepta escuchas de hace más de 14 días"), None).await?;
+    }
+    if fresh.is_empty() {
+        return Ok(true);
+    }
+    let items: Vec<ScrobbleItem> = fresh
+        .iter()
+        .map(|r| ScrobbleItem {
+            artist: r.artist.clone(),
+            track: r.track.clone(),
+            album: r.album.clone(),
+            album_artist: r.album_artist.clone().filter(|aa| aa != &r.artist),
+            timestamp: r.played_at,
+            duration_secs: r.duration_ms.map(|d| d / 1000),
+        })
+        .collect();
+    match st.lastfm.scrobble(&key, &sk, &items).await {
+        Ok(results) => {
+            let mut done = vec![];
+            for (r, res) in fresh.iter().zip(results) {
+                match res {
+                    Ok(()) => done.push(r.qid),
+                    // 3 = demasiado vieja, 4 = en el futuro: no tiene arreglo.
+                    Err((c @ (3 | 4), m)) => {
+                        set_rows(st, &[r.qid], "dead", Some(&format!("ignorada ({c}): {m}")), None).await?
+                    }
+                    // 5 = límite diario de escuchas: mañana.
+                    Err((5, m)) => {
+                        set_rows(st, &[r.qid], "pending", Some(&format!("límite diario: {m}")), Some(t + 3600)).await?
+                    }
+                    Err((c, m)) => {
+                        set_rows(st, &[r.qid], "failed", Some(&format!("ignorada ({c}): {m}")), None).await?
+                    }
+                }
+            }
+            if !done.is_empty() {
+                mark_done(st, done.clone()).await?;
+                tracing::info!(usuario = user_id, enviadas = done.len(), "reenviadas a Last.fm");
+            }
+            Ok(rows.len() as i64 == LASTFM_BATCH)
+        }
+        Err(LfmError::Auth(m)) => {
+            let ids: Vec<i64> = fresh.iter().map(|r| r.qid).collect();
+            let mut tx = st.db.begin().await?;
+            for id in &ids {
+                sqlx::query("UPDATE forward_queue SET status = 'paused', last_error = ?, updated_at = ? WHERE id = ?")
+                    .bind(&m)
+                    .bind(t)
+                    .bind(id)
+                    .execute(&mut *tx)
+                    .await?;
+            }
+            sqlx::query("UPDATE connections SET status = 'auth_failed', last_error = ?, updated_at = ? WHERE user_id = ? AND provider = 'lastfm'")
+                .bind(&m)
+                .bind(t)
+                .bind(user_id)
+                .execute(&mut *tx)
+                .await?;
+            tx.commit().await?;
+            tracing::warn!(usuario = user_id, error = %m, "Last.fm rechaza la sesión; hay que reconectar");
+            Ok(false)
+        }
+        Err(e @ (LfmError::Retry(_) | LfmError::NotFound(_) | LfmError::Permanent(_))) => {
+            let cfg = &st.cfg.forward;
+            let mut tx = st.db.begin().await?;
+            for r in &fresh {
+                let attempts = r.attempts + 1;
+                let wait = backoff(cfg.base_delay_secs, cfg.max_delay_secs, attempts);
+                sqlx::query("UPDATE forward_queue SET attempts = ?, next_attempt_at = ?, last_error = ?, updated_at = ? WHERE id = ?")
+                    .bind(attempts)
+                    .bind(t + wait)
+                    .bind(e.to_string())
+                    .bind(t)
+                    .bind(r.qid)
+                    .execute(&mut *tx)
+                    .await?;
+            }
+            tx.commit().await?;
+            tracing::warn!(usuario = user_id, error = %e, "Last.fm no disponible; se reintentará");
             Ok(false)
         }
     }
@@ -242,6 +397,24 @@ pub fn spawn_now_playing(st: AppState, user_id: i64, item: Value) {
         let md = item.get("track_metadata").cloned().unwrap_or(Value::Null);
         if let Err(e) = st.lb.submit(&token, "playing_now", vec![json!({"track_metadata": md})]).await {
             tracing::debug!(error = ?e, "playing_now no reenviado");
+        }
+    });
+}
+
+/// «Escuchando ahora» en Last.fm, si el usuario tiene el reenvío activado.
+pub fn spawn_now_playing_lastfm(st: AppState, user_id: i64, l: crate::scrobble::Listen) {
+    tokio::spawn(async move {
+        let Ok(Some((key, sk))) = crate::lastfm::session_for(&st, user_id, true).await else { return };
+        let it = crate::lastfm::client::ScrobbleItem {
+            artist: l.artist,
+            track: l.track,
+            album: l.album,
+            album_artist: None,
+            timestamp: now(),
+            duration_secs: l.duration_ms.map(|d| d / 1000),
+        };
+        if let Err(e) = st.lastfm.now_playing(&key, &sk, &it).await {
+            tracing::debug!(error = %e, "now playing de Last.fm no enviado");
         }
     });
 }
