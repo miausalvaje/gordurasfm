@@ -29,13 +29,13 @@ Leyenda: ✅ comprobado · 💡 propuesta · ⚠️ limitación o riesgo · ❓ 
   - ⚠️ **Usa la misma `BaseURL` para metadatos** (`metadata/artist`, `popularity/top-recordings-for-artist/…`). Si apuntamos la `BaseURL` a GordurasFM, esas peticiones nos llegan a nosotros, así que hay que reenviarlas tal cual a ListenBrainz (ver §3.2).
 - ⚠️ `ND_LISTENBRAINZ_BASEURL` afecta **a toda la instancia**: todos los usuarios de ese Navidrome pasan por GordurasFM.
 
-### Decisiones tomadas sin respuesta (las preguntas caducaron)
-Las he cogido como provisionales y se pueden cambiar sin rehacer nada:
-1. ❓ Interfaz **en español**, con todos los textos en un solo archivo (`lib/l10n/es.dart`) para traducirla más tarde. Los periodos salen como «Esta semana», «Este mes»… en lugar de *This Week*.
-2. ❓ **Key de Last.fm de la instancia** (la configura el admin) y, opcionalmente, una propia por usuario. Así se cumple «con su propia API key» sin obligar a todos a crear una.
-3. ❓ Entra **cualquier usuario del Navidrome** y el primero que entra es admin. Hay un interruptor para pedir aprobación del admin.
-4. ❓ Repositorio **público en `miausalvaje/gordurasfm`, con licencia AGPL-3.0** (código abierto que obliga a publicar los cambios si alguien lo ofrece como servicio).
-5. ⛔ **Dónde se compila: pendiente, me hace falta tu permiso.** El LXC 111 no tiene Rust ni Flutter, tiene 2 núcleos y le quedan 11 GB. Propuesta en §10.
+### Decisiones (confirmadas el 2026-11-25)
+1. ✅ Interfaz **en español**, con todos los textos en un solo archivo (`lib/l10n/es.dart`) para traducirla más tarde.
+2. ✅ **Key de Last.fm de la instancia** (la configura el admin) y, opcionalmente, una propia por usuario.
+3. ✅ Entra **cualquier usuario del Navidrome**; el primero es admin. Interruptor `registration = "approval"` para exigir aprobación.
+4. ✅ Repositorio **público `miausalvaje/gordurasfm`, AGPL-3.0**.
+5. ✅ Entorno de desarrollo: **LXC 135 `gordurasfm-dev`** (§10).
+6. ✅ Se reconocen los tokens reales de ListenBrainz ya conectados y los desconocidos pasan tal cual a ListenBrainz (§3.2).
 
 ---
 
@@ -353,13 +353,11 @@ Cada consulta de datos lleva `WHERE user_id = <sesión>`. No hay forma de pedir 
 
 ---
 
-## 10. Entorno de desarrollo (⛔ necesita tu permiso)
+## 10. Entorno de desarrollo ✅
 
-El LXC 111 no sirve para compilar con soltura: tiene 2 núcleos y 11 GB libres, y Rust + Flutter ocupan unos 5-6 GB (estimado). El host tiene 72 núcleos y RAM de sobra. Propuesta:
-
-- **LXC nuevo `gordurasfm-dev`**, Debian 13, sin privilegios: 8 vCPU, 8 GB de RAM y 40 GB en `thinpool-nvme`. Lleva Rust, cargo-zigbuild, Flutter y un **Navidrome 0.64.2 de pruebas** (es un único binario de Go, sin Docker), con música de muestra. Así la fase 1 se prueba de principio a fin sin tocar el Navidrome de producción.
-- El código seguiría en `~/GordurasFM` (este LXC). Trabajaría en el LXC de desarrollo por SSH, o con el código clonado allí desde GitHub.
-- La producción irá después a otro LXC pequeño (§8.1).
+- **LXC 135 `gordurasfm-dev`** (192.168.1.46), Debian 13, sin privilegios: 8 vCPU, 8 GB de RAM, 40 GB en `thinpool-nvme`, sin arranque automático.
+- Usuario `dev` con Rust estable, `cargo-zigbuild` + zig (binarios musl x86_64 y aarch64), Flutter estable y **Navidrome 0.64.2 de pruebas** en `~/navidrome-pruebas` (binario de Go, sin Docker).
+- El código se edita en `~/GordurasFM` del LXC 111 y se copia con `./sync.sh` (rsync). La prueba de principio a fin con Navidrome real es `scripts/e2e-navidrome.sh`.
 
 ---
 
@@ -373,4 +371,4 @@ El LXC 111 no sirve para compilar con soltura: tiene 2 núcleos y 11 GB libres, 
 | 4 | Wrapped: generador, foto fija, Stories, 3 pruebas, música y exportación | Generar un Wrapped real a partir de un historial importado |
 | 5 | `install.sh` + systemd, Docker multiarquitectura, guía de Termux, documentación de la API, CI | Instalación limpia en un LXC nuevo, medida de RAM y CPU reales |
 
-Antes de empezar la fase 1 hacen falta: permiso para el entorno de desarrollo (§10) y tu visto bueno a las decisiones provisionales (§1).
+Estado: fase 1 terminada (2026-11-25).

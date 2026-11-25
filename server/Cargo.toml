@@ -1,0 +1,46 @@
+[package]
+name = "gordurasfm"
+version = "0.1.0"
+description = "Estadísticas de escucha autoalojadas para Navidrome"
+license = "AGPL-3.0-only"
+build = "build.rs"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.105"
+axum = { version = "0.8.9", features = ["macros", "multipart"] }
+chacha20poly1305 = { version = "0.11.0", features = ["alloc"] }
+chrono = { version = "0.4.45", features = ["serde"] }
+chrono-tz = "0.10.4"
+hex = "0.4.3"
+hmac = "0.13.0"
+md-5 = "0.11.0"
+mime_guess = "2.0.5"
+rand = "0.10.4"
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "query", "form", "stream", "hickory-dns", "gzip", "rustls-no-provider"] }
+rust-embed = "8.14.0"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.11.2"
+sqlx = { version = "0.9.1", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate", "json"] }
+thiserror = "2.0.21"
+tokio = { version = "1.54.1", features = ["full"] }
+toml = "1.2.3"
+tower = "0.5.3"
+tower-http = { version = "0.7.1", features = ["compression-gzip", "trace", "limit", "timeout", "set-header", "fs"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+unicode-normalization = "0.1.26"
+webpki-roots = "1.0.12"
+
+[dev-dependencies]
+http-body-util = "0.1.5"
+tempfile = "3.27.0"
+wiremock = "0.6.5"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true

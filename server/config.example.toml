@@ -1,0 +1,24 @@
+# Configuración de GordurasFM. Todo es opcional: estos son los valores por defecto.
+# Cada opción se puede sobrescribir con una variable de entorno GFM_* (entre paréntesis).
+
+listen = "0.0.0.0:8090"                 # (GFM_LISTEN)
+data_dir = "/var/lib/gordurasfm"        # (GFM_DATA_DIR) BD, imágenes y copias
+# master_key_file = "/etc/gordurasfm/master.key"   # (GFM_MASTER_KEY_FILE) por defecto <data_dir>/master.key
+public_url = "http://localhost:8090"    # (GFM_PUBLIC_URL) URL con la que se entra desde el navegador
+cookie_secure = "auto"                  # (GFM_COOKIE_SECURE) auto = solo si public_url es https
+default_timezone = "Europe/Madrid"      # (GFM_DEFAULT_TIMEZONE) zona de los usuarios nuevos
+registration = "open"                   # (GFM_REGISTRATION) open | approval
+
+[navidrome]
+url = "http://localhost:4533"           # (GFM_NAVIDROME_URL)
+
+[listenbrainz]
+api_url = "https://api.listenbrainz.org"   # (GFM_LISTENBRAINZ_API_URL)
+# Si llega un token que no es de ningún usuario de GordurasFM, se pasa tal cual a ListenBrainz.
+# Así los usuarios de Navidrome que no usan GordurasFM no notan el cambio de BaseURL.
+passthrough_unknown_tokens = true
+
+[forward]
+base_delay_secs = 30        # primer reintento; se dobla en cada fallo
+max_delay_secs = 21600      # tope: 6 h
+poll_secs = 15              # revisión periódica de la cola
