@@ -1,6 +1,6 @@
 [package]
 name = "gordurasfm"
-version = "0.1.2"
+version = "0.1.3"
 description = "Estadísticas de escucha autoalojadas para Navidrome"
 license = "AGPL-3.0-only"
 build = "build.rs"
