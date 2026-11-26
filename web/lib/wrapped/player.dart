@@ -23,6 +23,10 @@ import 'zip.dart';
 const kSlideSeconds = 15;
 const _slideDuration = Duration(seconds: kSlideSeconds);
 
+/// `preserve`: con «reducir movimiento» activado, Flutter acorta las animaciones normales al 5 %
+/// (15 s → 0,75 s). El de las diapositivas es un temporizador, no una animación (issue #2).
+const _timerBehavior = AnimationBehavior.preserve;
+
 class _Spec {
   const _Spec(this.kind, [this.q]);
   final String kind;
@@ -53,10 +57,8 @@ class _WrappedPlayerScreenState extends State<WrappedPlayerScreen> with TickerPr
     vsync: this,
     duration: const Duration(milliseconds: 1800),
   );
-  late final AnimationController _progress = AnimationController(vsync: this, duration: _slideDuration)
-    ..addStatusListener((s) {
-      if (s == AnimationStatus.completed && _i < _slides.length - 1 && !_still) _go(_i + 1);
-    });
+  /// Temporizador de cada diapositiva.
+  late final AnimationController _progress;
   BackgroundMusic? _music;
   bool _muted = false;
   bool _held = false;
@@ -69,6 +71,15 @@ class _WrappedPlayerScreenState extends State<WrappedPlayerScreen> with TickerPr
   String? _busyMsg;
 
   Api get api => context.api;
+
+  @override
+  void initState() {
+    super.initState();
+    _progress = AnimationController(vsync: this, duration: _slideDuration, animationBehavior: _timerBehavior);
+    _progress.addStatusListener((s) {
+      if (s == AnimationStatus.completed && _i < _slides.length - 1 && !_still) _go(_i + 1);
+    });
+  }
 
   @override
   void didChangeDependencies() {
