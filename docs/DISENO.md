@@ -309,6 +309,14 @@ Cada consulta de datos lleva `WHERE user_id = <sesión>`. No hay forma de pedir 
 - Un único `AudioPlayer` de `just_audio` vive **por encima** del `PageView`, así que cambiar de diapositiva no lo reinicia. Lista con las canciones de `soundtrack` (las más escuchadas del año que existen en Navidrome), por `/api/v1/media/stream/:id`. Botón de silencio siempre visible y fundido de volumen al cambiar de canción.
 - Si una canción ya no está en Navidrome, se salta. Si no queda ninguna, el Wrapped funciona sin música.
 
+### 7.4 bis Cómo quedó al programarlo (fase 4) ✅
+- Sin `just_audio`: un `HTMLAudioElement` del navegador (`web/lib/platform/music_web.dart`) que vive en el reproductor, por encima de las diapositivas. Salta las canciones que fallan y hace fundidos de volumen.
+- Sin `PageView` ni `flutter_animate` en las diapositivas: un `AnimatedSwitcher` y animaciones propias (`Reveal`, `CountUp`) movidas por un único controlador de entrada. Así cada diapositiva se puede pintar «quieta» (estado final) para exportarla.
+- Lienzo lógico de 360 × 640 escalado con `FittedBox`. En el móvil se alarga hasta llenar la pantalla; al exportar se fuerza 9:16 y se captura a ×3 (1080 × 1920).
+- Paleta: se reducen a 20 × 20 la portada y la foto del artista principales y se eligen los colores más vivos y distintos entre sí.
+- «Exportar todo»: ZIP sin compresión hecho en Dart (los PNG ya van comprimidos), sin dependencias.
+- Las respuestas se guardan con `POST /api/v1/wrapped/answers/{id}`; el servidor decide si es acierto (posición 1, con empates incluidos).
+
 ### 7.5 Compartir y exportar
 - Cada diapositiva está dentro de un `RepaintBoundary` → `toImage()` → PNG de 1080×1920.
 - «Compartir» usa la Web Share API con archivos si el navegador la tiene (Android Chrome, Safari iOS); si no, descarga. «Exportar todo» descarga un ZIP con las 15 imágenes (las pruebas, ya contestadas).

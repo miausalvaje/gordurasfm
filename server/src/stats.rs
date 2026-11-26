@@ -57,7 +57,7 @@ async fn data_version(db: &Db, user_id: i64) -> sqlx::Result<(i64, i64)> {
         .await
 }
 
-fn user_tz(tz: &str) -> Tz {
+pub fn user_tz(tz: &str) -> Tz {
     tz.parse().unwrap_or(chrono_tz::Europe::Madrid)
 }
 

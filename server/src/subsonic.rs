@@ -120,6 +120,35 @@ impl Subsonic {
         Ok((ctype, body))
     }
 
+    /// `stream`: devuelve la respuesta tal cual (para reenviarla en streaming, con `Range`).
+    pub async fn stream(
+        &self,
+        creds: &Creds,
+        params: &[(&str, &str)],
+        range: Option<&str>,
+    ) -> Result<reqwest::Response, SubsonicError> {
+        let url = format!("{}/rest/stream", self.base);
+        let mut q: Vec<(&str, &str)> = vec![
+            ("u", &creds.u),
+            ("t", &creds.t),
+            ("s", &creds.s),
+            ("v", API_VERSION),
+            ("c", CLIENT_NAME),
+            ("f", "json"),
+        ];
+        q.extend_from_slice(params);
+        let mut req = self.http.get(&url).query(&q);
+        if let Some(r) = range {
+            req = req.header(reqwest::header::RANGE, r);
+        }
+        let resp = req.send().await.map_err(|e| SubsonicError::Network(e.to_string()))?;
+        let ctype = resp.headers().get(reqwest::header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).unwrap_or("");
+        if !resp.status().is_success() || ctype.contains("json") || ctype.contains("xml") {
+            return Err(SubsonicError::Api(format!("stream: HTTP {}", resp.status())));
+        }
+        Ok(resp)
+    }
+
     /// `search3`: devuelve (artistas, álbumes, canciones).
     pub async fn search3(
         &self,

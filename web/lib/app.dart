@@ -9,9 +9,11 @@ import 'screens/home.dart';
 import 'screens/login.dart';
 import 'screens/profile.dart';
 import 'screens/top.dart';
+import 'screens/wrapped_list.dart';
 import 'session.dart';
 import 'theme.dart';
 import 'widgets/shell.dart';
+import 'wrapped/player.dart';
 
 String periodOf(GoRouterState s) {
   final p = s.uri.queryParameters['periodo'];
@@ -37,6 +39,17 @@ GoRouter buildRouter(Session session) => GoRouter(
   },
   routes: [
     GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
+    // El reproductor del Wrapped va a pantalla completa, fuera del marco con la navegación.
+    GoRoute(
+      path: '/wrapped/:year',
+      pageBuilder: (_, s) {
+        final y = int.tryParse(s.pathParameters['year'] ?? '') ?? DateTime.now().year;
+        return NoTransitionPage(
+          key: ValueKey('wrapped$y'),
+          child: WrappedPlayerScreen(year: y),
+        );
+      },
+    ),
     ShellRoute(
       builder: (_, state, child) => AppShell(location: state.uri.path, child: child),
       routes: [
@@ -59,6 +72,10 @@ GoRouter buildRouter(Session session) => GoRouter(
         GoRoute(
           path: '/historial',
           pageBuilder: (_, _) => const NoTransitionPage(child: HistoryScreen()),
+        ),
+        GoRoute(
+          path: '/wrapped',
+          pageBuilder: (_, _) => const NoTransitionPage(child: WrappedListScreen()),
         ),
         GoRoute(
           path: '/perfil',

@@ -87,7 +87,7 @@ class T {
   static const enTotal = 'En total';
   static const recientes = 'Escuchado hace poco';
   static const wrapped = 'Wrapped';
-  static const wrappedProximamente = 'Tu resumen anual animado llegará pronto.';
+  static const navWrapped = 'Wrapped';
   static const editarPerfil = 'Editar perfil';
   static const nombreVisible = 'Nombre visible';
   static const zonaHoraria = 'Zona horaria';

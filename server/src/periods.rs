@@ -205,6 +205,23 @@ pub fn local_date(tz: &Tz, ts: i64) -> NaiveDate {
     DateTime::from_timestamp(ts, 0).unwrap_or_default().with_timezone(tz).date_naive()
 }
 
+/// Un año natural completo en hora local (para el Wrapped), con cubos por mes. `previous` es el año
+/// anterior completo.
+pub fn year(tz: Tz, year: i32, now: DateTime<Utc>) -> Period {
+    let from_d = first_of_month(year, 1);
+    let to_d = first_of_month(year + 1, 1);
+    let current = now.with_timezone(&tz).year() == year;
+    Period {
+        key: if current { PeriodKey::ThisYear } else { PeriodKey::LastYear },
+        timezone: tz.name().to_string(),
+        from: local_midnight(&tz, from_d),
+        to: local_midnight(&tz, to_d),
+        unit: Unit::Month,
+        buckets: month_buckets(&tz, from_d, to_d),
+        previous: Some((local_midnight(&tz, first_of_month(year - 1, 1)), local_midnight(&tz, from_d))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

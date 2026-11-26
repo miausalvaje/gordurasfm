@@ -10,8 +10,8 @@ Backend en Rust (axum + SQLite WAL) y web en Flutter, servidos por **un único b
 | 0 | Diseño: [`docs/DISENO.md`](docs/DISENO.md) | ✅ |
 | 1 | Backend base: login con Navidrome, sesiones, tokens, `/1/validate-token`, `/1/submit-listens`, paso a ListenBrainz, cola de reenvío con reintentos | ✅ |
 | 2 | Estadísticas por periodo (zona horaria del usuario), tops, Last.fm (conexión, reenvío, importación reanudable), importar/exportar ficheros, portadas desde Navidrome | ✅ |
-| 3 | Web: login, perfil, estadísticas, tops | ⏳ |
-| 4 | Wrapped | ⏳ |
+| 3 | Web: login, inicio, tops, historial, perfil, conexiones, administración | ✅ |
+| 4 | Wrapped: foto fija anual con versiones, 15 diapositivas, 3 pruebas, música de Navidrome, exportar a PNG/ZIP | ✅ |
 | 5 | Instalador LXC, Docker, Termux, OpenAPI | ⏳ |
 
 API: [`docs/API.md`](docs/API.md).

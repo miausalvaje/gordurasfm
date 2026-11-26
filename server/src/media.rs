@@ -197,3 +197,55 @@ async fn fetch(st: &AppState, user_id: i64, r: &str, size: u32) -> Option<Vec<u8
         None
     }
 }
+
+/// Guarda una copia propia de la imagen (para el Wrapped) y devuelve su hash. `None` si no existe.
+pub async fn snapshot(st: &AppState, user_id: i64, r: &str, size: u32) -> Option<String> {
+    serve_ref(st, user_id, r, size).await.ok()?;
+    sqlx::query_as::<_, (Option<String>,)>("SELECT hash FROM image_refs WHERE ref = ? AND size = ?")
+        .bind(r)
+        .bind(size)
+        .fetch_optional(&st.db)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|(h,)| h)
+}
+
+/// GET /api/v1/media/stream/{song_id} — audio de Navidrome (para la música del Wrapped), con `Range`.
+/// Solo canciones que el usuario ha escuchado.
+pub async fn stream(
+    State(st): State<AppState>,
+    CurrentUser(u): CurrentUser,
+    Path(song_id): Path<String>,
+    headers: axum::http::HeaderMap,
+) -> AppResult<Response> {
+    let allowed: Option<(i64,)> = sqlx::query_as(
+        "SELECT 1 FROM track_navidrome tn WHERE tn.navidrome_song_id = ? \
+         AND EXISTS (SELECT 1 FROM scrobbles s WHERE s.user_id = ? AND s.track_id = tn.track_id) LIMIT 1",
+    )
+    .bind(&song_id)
+    .bind(u.id)
+    .fetch_optional(&st.db)
+    .await?;
+    if allowed.is_none() {
+        return Err(AppError::NotFound);
+    }
+    let creds = navidrome_creds(&st, u.id).await?;
+    let range = headers.get(header::RANGE).and_then(|v| v.to_str().ok());
+    let resp = st
+        .subsonic
+        .stream(&creds, &[("id", &song_id), ("format", "mp3"), ("maxBitRate", "192")], range)
+        .await
+        .map_err(|e| {
+        tracing::debug!(error = %e, "audio no disponible en Navidrome");
+        AppError::NotFound
+    })?;
+    let mut b =
+        Response::builder().status(resp.status().as_u16()).header(header::CACHE_CONTROL, "private, max-age=3600");
+    for h in [header::CONTENT_TYPE, header::CONTENT_LENGTH, header::CONTENT_RANGE, header::ACCEPT_RANGES] {
+        if let Some(v) = resp.headers().get(h.as_str()).and_then(|v| v.to_str().ok()) {
+            b = b.header(h, v);
+        }
+    }
+    Ok(b.body(Body::from_stream(resp.bytes_stream())).unwrap())
+}

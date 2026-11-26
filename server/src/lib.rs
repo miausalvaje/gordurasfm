@@ -26,12 +26,19 @@ pub mod stats;
 pub mod subsonic;
 pub mod tokens;
 pub mod web;
+pub mod wrapped;
 
 use std::time::Duration;
 
 use axum::{Router, http::HeaderValue};
 use tower_http::{
-    compression::CompressionLayer, set_header::SetResponseHeaderLayer, timeout::TimeoutLayer, trace::TraceLayer,
+    compression::{
+        CompressionLayer,
+        predicate::{DefaultPredicate, NotForContentType, Predicate},
+    },
+    set_header::SetResponseHeaderLayer,
+    timeout::TimeoutLayer,
+    trace::TraceLayer,
 };
 
 pub use state::AppState;
@@ -50,7 +57,10 @@ pub fn app(st: AppState) -> Router {
             axum::http::header::REFERRER_POLICY,
             HeaderValue::from_static("same-origin"),
         ))
-        .layer(CompressionLayer::new())
+        // El audio no se comprime (ya lo está y rompería las peticiones con `Range`).
+        .layer(
+            CompressionLayer::new().compress_when(DefaultPredicate::new().and(NotForContentType::const_new("audio/"))),
+        )
         .layer(TimeoutLayer::with_status_code(axum::http::StatusCode::REQUEST_TIMEOUT, Duration::from_secs(60)))
         .layer(TraceLayer::new_for_http())
         .with_state(st)
@@ -62,4 +72,5 @@ pub fn spawn_background(st: &AppState) {
     tokio::spawn(jobs::run(st.clone()));
     tokio::spawn(enrich::run(st.clone()));
     tokio::spawn(db::maintenance(st.db.clone()));
+    tokio::spawn(wrapped::run(st.clone()));
 }

@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import '../api.dart';
 import '../format.dart';
 import '../l10n/es.dart';
+import '../l10n/wrapped_es.dart';
 import '../platform/browser.dart';
 import '../session.dart';
 import '../theme.dart';
@@ -184,30 +185,38 @@ class _Body extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        // Wrapped (fase 4)
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
+        // Wrapped
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
             borderRadius: BorderRadius.circular(18),
-            gradient: const LinearGradient(colors: [Color(0xFF3A1D5C), Color(0xFF7A1F4B)]),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.auto_awesome_rounded, size: 32, color: Colors.white),
-              SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      T.wrapped,
-                      style: TextStyle(fontFamily: 'InterDisplay', fontSize: 20, fontWeight: FontWeight.w900),
-                    ),
-                    Text(T.wrappedProximamente, style: TextStyle(color: Colors.white70, fontSize: 13)),
-                  ],
-                ),
+            onTap: () => context.go('/wrapped'),
+            child: Ink(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: const LinearGradient(colors: [Color(0xFF3A1D5C), Color(0xFF7A1F4B)]),
               ),
-            ],
+              child: const Row(
+                children: [
+                  Icon(Icons.auto_awesome_rounded, size: 32, color: Colors.white),
+                  SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          T.wrapped,
+                          style: TextStyle(fontFamily: 'InterDisplay', fontSize: 20, fontWeight: FontWeight.w900),
+                        ),
+                        Text(TW.explica, style: TextStyle(color: Colors.white70, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, color: Colors.white70),
+                ],
+              ),
+            ),
           ),
         ),
         if (stats.topArtists.isNotEmpty) ...[

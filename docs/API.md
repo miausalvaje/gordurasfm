@@ -67,8 +67,24 @@ Periodos (`period`): `this_week`, `last_week`, `this_month`, `last_month`, `this
 |---|---|
 | `GET /api/v1/media/cover/{album_id}?size=300` | Portada del álbum, sacada de Navidrome (con tus permisos) o de Last.fm, y guardada en caché. Solo de álbumes que has escuchado |
 | `GET /api/v1/media/artist/{artist_id}?size=300` | Imagen del artista desde Navidrome |
+| `GET /api/v1/media/stream/{song_id}` | Audio de Navidrome (MP3 a 192 kbit/s si Navidrome puede convertirlo) para la música del Wrapped. Admite `Range` y no se comprime. Solo canciones que has escuchado |
 
 Tamaños: 64, 150, 300, 600 y 1000 (se redondea al más cercano). Si no hay imagen, `404`; se vuelve a intentar al día siguiente.
+
+### Wrapped (fase 4)
+
+| Método y ruta | Cuerpo / parámetros | Respuesta |
+|---|---|---|
+| `GET /api/v1/wrapped` | — | `{current_year, years:[{year, plays, current, wrapped: {id, version, is_final, generated_at, outdated} \| null}]}` (solo años con escuchas) |
+| `GET /api/v1/wrapped/{year}` | — | `{id, year, version, is_final, generated_at, outdated, answers, data}`. Si no existe, se genera: el año en curso como vista previa (`version 0`, se rehace como mucho cada hora) y los pasados como definitivo (`version 1`). `404` si el año no tiene escuchas o es futuro |
+| `POST /api/v1/wrapped/{year}/regenerate` | — | igual que el anterior. En años pasados crea una versión nueva y conserva las anteriores |
+| `POST /api/v1/wrapped/answers/{id}` | `{question: "artist"\|"album"\|"track", chosen_rank}` | `{correct, answers}`. Solo cuenta la primera respuesta de cada prueba |
+| `GET /api/v1/wrapped/image/{hash}` | — | imagen guardada para el Wrapped (copia propia; sigue aunque cambie la biblioteca). Solo si sale en algún Wrapped tuyo |
+
+- `data` es una foto fija: `{schema, year, user, timezone, totals {plays, ms, ms_estimated, artists, albums, tracks, days_with_music, top_day, peak_hour, first_play, previous_plays, change_pct}, top_artists[5] {rank, name, plays, image, covers[]}, top_albums[5] {rank, title, artist, plays, cover}, top_tracks[5] {rank, title, artist, album, plays, cover}, monthly[12] {month, plays, top_artist}, evolution[4] {quarter, plays, top_artists[3], image, covers}, top_month {month, plays, top_artist, top_track}, soundtrack[≤12] {navidrome_song_id, title, artist}, generated_at}`.
+- Las imágenes van como `img:<sha256>` → `/api/v1/wrapped/image/<sha256>`.
+- `outdated`: el definitivo tiene menos (o más) escuchas que las que hay ahora en la BD para ese año (por ejemplo, tras importar de Last.fm). La web ofrece «Rehacer».
+- El definitivo del año anterior se genera solo cada hora a partir del 1 de enero a las 06:00 (hora del usuario).
 
 ### Last.fm
 

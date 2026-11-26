@@ -16,7 +16,7 @@ use crate::{
     error::AppResult,
     export, jobs, lastfm, media,
     state::{AppState, NowPlaying},
-    stats, tokens,
+    stats, tokens, wrapped,
 };
 
 pub fn router() -> Router<AppState> {
@@ -44,6 +44,12 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/top/{kind}", get(stats::get_top))
         .route("/api/v1/media/cover/{id}", get(media::cover))
         .route("/api/v1/media/artist/{id}", get(media::artist))
+        .route("/api/v1/media/stream/{song_id}", get(media::stream))
+        .route("/api/v1/wrapped", get(wrapped::list))
+        .route("/api/v1/wrapped/image/{hash}", get(wrapped::image))
+        .route("/api/v1/wrapped/{year}", get(wrapped::get))
+        .route("/api/v1/wrapped/{year}/regenerate", post(wrapped::regenerate))
+        .route("/api/v1/wrapped/answers/{id}", post(wrapped::answer))
         .route("/api/v1/import/lastfm", post(jobs::start_lastfm))
         .route("/api/v1/import/file", post(jobs::upload_file).layer(DefaultBodyLimit::max(jobs::MAX_UPLOAD)))
         .route("/api/v1/import/jobs", get(jobs::list))

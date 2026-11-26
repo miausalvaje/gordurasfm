@@ -18,13 +18,15 @@ const _dests = [
   _Dest('/', T.navInicio, Icons.insights_outlined, Icons.insights_rounded),
   _Dest('/top/albums', T.navTops, Icons.leaderboard_outlined, Icons.leaderboard_rounded),
   _Dest('/historial', T.navHistorial, Icons.history_rounded, Icons.history_rounded),
+  _Dest('/wrapped', T.navWrapped, Icons.auto_awesome_outlined, Icons.auto_awesome_rounded),
   _Dest('/perfil', T.navPerfil, Icons.person_outline_rounded, Icons.person_rounded),
 ];
 
 int _indexFor(String path) {
   if (path.startsWith('/top')) return 1;
   if (path.startsWith('/historial')) return 2;
-  if (path.startsWith('/perfil') || path.startsWith('/ajustes') || path.startsWith('/admin')) return 3;
+  if (path.startsWith('/wrapped')) return 3;
+  if (path.startsWith('/perfil') || path.startsWith('/ajustes') || path.startsWith('/admin')) return 4;
   return 0;
 }
 
