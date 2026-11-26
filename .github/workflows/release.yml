@@ -69,6 +69,11 @@ jobs:
           sudo gordurasfm-update --binary dist/gordurasfm-x86_64-linux-musl
           sudo ls /var/lib/gordurasfm/backups | grep -q '^manual-'
           curl -fsS http://127.0.0.1:8090/api/v1/salud
+          # Una versión que no arranca: debe volver sola a la anterior.
+          printf '#!/bin/sh\n[ "$1" = version ] && echo "gordurasfm 9.9.9" && exit 0\nexit 1\n' > roto && chmod +x roto
+          if sudo gordurasfm-update --binary ./roto; then echo "la actualización rota debía fallar"; exit 1; fi
+          ! /usr/local/bin/gordurasfm version | grep -q 9.9.9
+          curl -fsS http://127.0.0.1:8090/api/v1/salud
       - uses: actions/upload-artifact@v4
         with:
           name: dist

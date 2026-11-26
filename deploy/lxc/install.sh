@@ -194,8 +194,10 @@ UNIT_EOF
 systemctl daemon-reload
 
 # 5. Actualizador: copia de este script (o, si llegó por curl, uno que lo descarga)
-if [ -f "${BASH_SOURCE[0]:-}" ] && grep -q GFM_INSTALLER "${BASH_SOURCE[0]}"; then
-  install -m 755 "${BASH_SOURCE[0]}" "$UPDATER"
+SELF=$(readlink -f "${BASH_SOURCE[0]:-}" 2>/dev/null || true)
+if [ -f "$SELF" ] && grep -q GFM_INSTALLER "$SELF"; then
+  # Si ya se está ejecutando como gordurasfm-update, no hay nada que copiar.
+  [ "$SELF" = "$UPDATER" ] || install -m 755 "$SELF" "$UPDATER"
 else
   cat > "$UPDATER" <<EOF
 #!/bin/sh
@@ -217,16 +219,23 @@ systemctl restart gordurasfm
 
 # 6. Comprobación (si una actualización no arranca, vuelve al binario anterior)
 ok=0
-for _ in $(seq 1 30); do
-  if runuser -u "$USER_NAME" -- "$BIN" healthcheck --config "$CONFIG" >/dev/null 2>&1; then ok=1; break; fi
-  sleep 1
-done
+health() {
+  for _ in $(seq 1 30); do
+    if runuser -u "$USER_NAME" -- "$BIN" healthcheck --config "$CONFIG" >/dev/null 2>&1; then return 0; fi
+    sleep 1
+  done
+  return 1
+}
+health && ok=1
 if [ "$ok" != 1 ]; then
   journalctl -u gordurasfm -n 20 --no-pager >&2 || true
   if [ "$UPDATE" = 1 ] && [ -f "$BIN.anterior" ]; then
     mv -f "$BIN.anterior" "$BIN"
     systemctl restart gordurasfm
-    die "la versión nueva no arranca: se ha vuelto a la anterior. La copia de la BD está en $DATA/backups"
+    if health; then
+      die "la versión nueva no arranca: se ha vuelto a la anterior, que funciona. Copia de la BD en $DATA/backups"
+    fi
+    die "la versión nueva no arranca y la anterior tampoco (¿la nueva migró la BD?): restaura la última copia de $DATA/backups (docs/DESPLIEGUE.md, sección 5)"
   fi
   die "GordurasFM no responde; mira: journalctl -u gordurasfm"
 fi
