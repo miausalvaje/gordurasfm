@@ -70,6 +70,11 @@ fn subsonic(req: &Request) -> ResponseTemplate {
 }
 
 async fn spawn() -> TestApp {
+    spawn_with(true).await
+}
+
+/// `secret = false`: la instancia solo tiene la API key de Last.fm.
+async fn spawn_with(secret: bool) -> TestApp {
     let nd = MockServer::start().await;
     Mock::given(method("GET")).respond_with(subsonic).mount(&nd).await;
     let lfm = MockServer::start().await;
@@ -86,7 +91,7 @@ async fn spawn() -> TestApp {
     cfg.listenbrainz.api_url = "http://127.0.0.1:9".into();
     cfg.lastfm.api_url = format!("{}/2.0/", lfm.uri());
     cfg.lastfm.api_key = Some(LFM_KEY.into());
-    cfg.lastfm.api_secret = Some(LFM_SECRET.into());
+    cfg.lastfm.api_secret = secret.then(|| LFM_SECRET.into());
     cfg.lastfm.import_delay_ms = 0;
     cfg.enrich.enabled = false; // se llama a mano
     cfg.forward.base_delay_secs = 1;
@@ -362,6 +367,39 @@ async fn importar_de_lastfm_reanudable_y_solo_lo_nuevo() {
         .await;
     let (code, _) = app.send(&ana, reqwest::Method::POST, "/api/v1/import/lastfm", json!({"username": "nadie"})).await;
     assert_eq!(code, 400);
+}
+
+#[tokio::test]
+async fn importar_lastfm_solo_con_key() {
+    let app = spawn_with(false).await;
+    let ana = app.login("ana", "secreto").await;
+    let now = chrono::Utc::now().timestamp();
+    Mock::given(method("GET"))
+        .and(query_param("method", "user.getRecentTracks"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(recent(
+            vec![
+                lfm_track("Rosalía", "Saoko", "Motomami", now - 5000),
+                lfm_track("Bad Gyal", "Fiebre", "Slow Wine", now - 4000),
+            ],
+            1,
+            1,
+        )))
+        .mount(&app.lfm)
+        .await;
+    let (_, st) = app.get(&ana, "/api/v1/lastfm/status").await;
+    assert_eq!(st["available"], true, "{st}");
+    // Importar funciona sin secret…
+    let (code, job) = app
+        .send(&ana, reqwest::Method::POST, "/api/v1/import/lastfm", json!({"mode": "full", "username": "analfm"}))
+        .await;
+    assert_eq!(code, 200, "{job}");
+    let j = app.wait_job(&ana, job["id"].as_i64().unwrap()).await;
+    assert_eq!(j["status"], "done", "{j}");
+    assert_eq!(j["stats"]["stored"], 2);
+    // …pero conectar la cuenta no, y el error lo explica.
+    let (code, e) = app.get(&ana, "/api/v1/connections/lastfm/start").await;
+    assert_eq!(code, 400);
+    assert!(e["message"].as_str().unwrap().contains("secret"), "{e}");
 }
 
 #[tokio::test]

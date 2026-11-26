@@ -8,7 +8,15 @@ use serde_json::Value;
 #[derive(Debug, Clone)]
 pub struct Key {
     pub api_key: String,
+    /// Vacío si solo se tiene la key (vale para leer, no para firmar).
     pub secret: String,
+}
+
+impl Key {
+    /// ¿Puede firmar peticiones (conectar cuentas, enviar escuchas)?
+    pub fn can_sign(&self) -> bool {
+        !self.secret.is_empty()
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -115,6 +123,9 @@ impl LastFm {
         params.insert("method".into(), method.into());
         params.insert("api_key".into(), key.api_key.clone());
         if signed {
+            if !key.can_sign() {
+                return Err(LfmError::Auth("la key de Last.fm no tiene secret".into()));
+            }
             let sig = sign(&params, &key.secret);
             params.insert("api_sig".into(), sig);
         }
@@ -253,6 +264,16 @@ impl LastFm {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn sin_secret_no_firma_ni_llama() {
+        // Puerto 9: si llegara a hacer la petición, daría error de red (Retry), no Auth.
+        let lfm = LastFm::new(crate::http_client::build(), "http://127.0.0.1:9/2.0/");
+        let key = Key { api_key: "k".into(), secret: String::new() };
+        assert!(!key.can_sign());
+        let r = lfm.call("auth.getSession", BTreeMap::new(), &key, true, false).await;
+        assert!(matches!(r, Err(LfmError::Auth(_))), "{r:?}");
+    }
 
     #[test]
     fn firma_ordenada_sin_format() {
