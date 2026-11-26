@@ -22,6 +22,7 @@ use crate::{
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/v1/salud", get(salud))
+        .route("/api/v1/openapi.json", get(openapi))
         .route("/api/v1/auth/login", post(auth::login))
         .route("/api/v1/auth/logout", post(auth::logout))
         .route("/api/v1/me", get(auth::me).patch(auth::update_me))
@@ -66,6 +67,14 @@ pub fn router() -> Router<AppState> {
 async fn salud(State(st): State<AppState>) -> Json<Value> {
     let db_ok = sqlx::query("SELECT 1").execute(&st.db).await.is_ok();
     Json(json!({"status": if db_ok { "ok" } else { "error" }, "version": env!("CARGO_PKG_VERSION"), "db": db_ok}))
+}
+
+/// Especificación OpenAPI 3.1 (se edita en `docs/openapi.json`).
+pub const OPENAPI: &str = include_str!("../../docs/openapi.json");
+
+/// GET /api/v1/openapi.json
+async fn openapi() -> impl axum::response::IntoResponse {
+    ([(axum::http::header::CONTENT_TYPE, "application/json")], OPENAPI)
 }
 
 #[derive(Deserialize)]
@@ -131,4 +140,74 @@ async fn now_playing(State(st): State<AppState>, CurrentUser(u): CurrentUser) ->
         crate::db::now() - n.since <= limit
     });
     Json(fresh)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+
+    /// Saca `(método, ruta)` de las llamadas `.route("…", get(…).post(…))` de un archivo fuente.
+    fn routes_in(src: &str) -> BTreeSet<(String, String)> {
+        let mut out = BTreeSet::new();
+        // Solo el código, no los tests (que también contienen `.route(` de ejemplo).
+        let mut rest = src.split("#[cfg(test)]").next().unwrap();
+        while let Some(i) = rest.find(".route(") {
+            rest = rest[i + 7..].trim_start();
+            let Some(r) = rest.strip_prefix('"') else { continue };
+            rest = r;
+            let end = rest.find('"').unwrap();
+            let path = rest[..end].replace("{*rest}", "{rest}");
+            // Hasta el paréntesis que cierra `.route(`.
+            let (mut depth, mut j) = (1, 0);
+            for (k, c) in rest.char_indices() {
+                match c {
+                    '(' => depth += 1,
+                    ')' => depth -= 1,
+                    _ => {}
+                }
+                if depth == 0 {
+                    j = k;
+                    break;
+                }
+            }
+            let call = &rest[end..j];
+            for m in ["get", "post", "put", "patch", "delete"] {
+                let pat = format!("{m}(");
+                if call.match_indices(&pat).any(|(k, _)| {
+                    k == 0 || !call.as_bytes()[k - 1].is_ascii_alphanumeric() && call.as_bytes()[k - 1] != b'_'
+                }) {
+                    out.insert((m.to_string(), path.clone()));
+                }
+            }
+            rest = &rest[j..];
+        }
+        out
+    }
+
+    #[test]
+    fn openapi_cubre_todas_las_rutas() {
+        let spec: serde_json::Value = serde_json::from_str(super::OPENAPI).expect("openapi.json no es JSON válido");
+        assert_eq!(spec["openapi"], "3.1.0");
+        assert_eq!(spec["info"]["version"], env!("CARGO_PKG_VERSION"), "versión de openapi.json");
+        let mut documented = BTreeSet::new();
+        for (path, ops) in spec["paths"].as_object().unwrap() {
+            for (m, op) in ops.as_object().unwrap() {
+                assert!(op["summary"].is_string(), "{m} {path} sin summary");
+                documented.insert((m.clone(), path.clone()));
+            }
+        }
+        let mut code = routes_in(include_str!("api.rs"));
+        code.extend(routes_in(include_str!("listenbrainz/compat.rs")));
+        assert!(code.len() > 40, "no se han encontrado las rutas: {code:?}");
+        let missing: Vec<_> = code.difference(&documented).collect();
+        let extra: Vec<_> = documented.difference(&code).collect();
+        assert!(missing.is_empty(), "rutas sin documentar en docs/openapi.json: {missing:?}");
+        assert!(extra.is_empty(), "rutas documentadas que no existen: {extra:?}");
+        // Todas las referencias apuntan a esquemas que existen.
+        let txt = super::OPENAPI;
+        for (i, _) in txt.match_indices("#/components/schemas/") {
+            let name: String = txt[i + 21..].chars().take_while(|c| c.is_alphanumeric()).collect();
+            assert!(spec["components"]["schemas"][&name].is_object(), "falta el esquema {name}");
+        }
+    }
 }

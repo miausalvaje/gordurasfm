@@ -74,7 +74,8 @@ Leyenda: ✅ comprobado · 💡 propuesta · ⚠️ limitación o riesgo · ❓ 
 - Crates: `axum`, `tokio`, `sqlx` (sqlite, migrate, SQLite empaquetado), `reqwest` (rustls + `webpki-roots` + `hickory-dns`, sin OpenSSL), `tower-http` (compresión, límites, trazas), `chrono` + `chrono-tz` (zonas horarias incluidas en el binario), `chacha20poly1305`, `sha2`, `md-5`, `unicode-normalization`, `rust-embed`, `utoipa` + `utoipa-scalar`, `moka` (caché), `tracing`.
 - **Binario estático**: `x86_64-unknown-linux-musl` y `aarch64-unknown-linux-musl` con `cargo-zigbuild`. No depende de glibc, OpenSSL, zoneinfo ni certificados del sistema, así que el mismo binario sirve para Ubuntu, Docker `scratch` y Termux.
 - Configuración: `config.toml`, que se puede sobrescribir con variables `GFM_*`. Los secretos de la instancia (clave maestra y key de Last.fm) van en archivos con permisos 600, nunca en la BD en claro.
-- Consumo: 💡 estimado entre 15 y 40 MB de RAM en reposo y CPU casi nula. Se medirá en la fase 5.
+- Consumo ✅ medido en la fase 5 (LXC nuevo, 1 vCPU, 512 MB): 18 MB de RSS en reposo recién arrancado, 45 MB tras importar 100 000 escuchas, pico de 85 MB de RSS (104 MB del cgroup, con caché de disco) importando, y 4 ms de CPU por minuto en reposo. Detalle en `docs/DESPLIEGUE.md`.
+- Cómo quedó: sin `utoipa` (la especificación OpenAPI se escribe a mano en `docs/openapi.json` y un test comprueba que cubre todas las rutas del código) y sin la función `hickory-dns` de `reqwest`: resolutor propio (`server/src/dns.rs`) que lee `GFM_DNS`, `/etc/resolv.conf` o el `resolv.conf` de Termux y, si no hay, usa Cloudflare.
 
 ### Frontend (Flutter Web)
 - `web/` con `go_router`, `flutter_riverpod` (estado), `fl_chart`, `flutter_animate`, `just_audio` y `http`.
@@ -325,6 +326,14 @@ Cada consulta de datos lleva `WHERE user_id = <sesión>`. No hay forma de pedir 
 
 ## 8. Despliegue
 
+### 8.0 Cómo quedó (fase 5) ✅
+- Guía para usuarios: `docs/DESPLIEGUE.md` (LXC, Docker, Navidrome, proxy, copias) y `docs/TERMUX.md`.
+- `deploy/lxc/install.sh` probado en un LXC nuevo sin privilegios (Ubuntu 24.04) y en la CI. Actualizar = volver a lanzarlo o `gordurasfm-update` (en vez de un subcomando `gordurasfm update`): copia la BD con `gordurasfm backup`, cambia el binario y, si no responde en 30 s, vuelve al anterior.
+- Unidad systemd más aislada que lo previsto (`systemd-analyze security`: 1.2 OK), con `MemoryMax=384M` en vez de 256M para dejar margen a importaciones grandes. Funciona en LXC sin privilegios con `nesting=1`.
+- Subcomandos nuevos: `gordurasfm backup` (copia con el servidor en marcha, BD abierta en solo lectura) y `gordurasfm healthcheck` (para el `HEALTHCHECK` de Docker, que no tiene curl).
+- Docker: `Dockerfile` en la raíz, `FROM scratch` con los binarios de `scripts/build-release.sh`; la CI (`release.yml`) prueba la imagen amd64 (healthcheck) y la arm64 emulada, y solo publica con una etiqueta `vX.Y.Z`.
+- Termux: `deploy/termux/install.sh` (termux-services + `termux-wake-lock`). Probado el binario aarch64 con qemu sin `/etc/resolv.conf` y con `$PREFIX/etc/resolv.conf`; no se ha probado en un móvil real.
+
 ### 8.1 LXC Ubuntu 24.04 en Proxmox (principal, sin Docker)
 - `deploy/lxc/install.sh`:
   1. Detecta la arquitectura.
@@ -355,7 +364,8 @@ Cada consulta de datos lleva `WHERE user_id = <sesión>`. No hay forma de pedir 
 - Las escuchas **nunca se borran solas**. Solo el propio usuario puede borrar una escucha o todo su historial (con confirmación).
 - Se guarda el JSON original de cada escucha, así que una mejora de la normalización se puede aplicar a todo el historial sin perder nada.
 - Migraciones solo hacia delante, con copia automática de la BD antes de aplicar una nueva.
-- **Copia diaria** con `VACUUM INTO` a `/var/lib/gordurasfm/backups/` (se guardan 7 diarias y 4 semanales), además de la copia de Proxmox del LXC.
+- ✅ **Copia diaria** con `VACUUM INTO` a `/var/lib/gordurasfm/backups/` (se guardan 7 diarias y 4 semanales; `[backup]` en la configuración), además de la copia de Proxmox del LXC. Se revisa cada hora y se hace si la última tiene más de 23 h, así que los reinicios no la saltan (`server/src/backup.rs`).
+- ✅ Copia `pre-migracion-*.db` antes de aplicar migraciones nuevas (`db::open`).
 - **Exportación** por usuario (`/api/v1/export`): todo su historial en JSON y CSV, en el mismo formato que se puede volver a importar.
 - Wrapped: filas inmutables con número de versión. Se guardan copias propias de las imágenes en `images/`, que no se borran mientras algún Wrapped las use.
 
@@ -379,4 +389,4 @@ Cada consulta de datos lleva `WHERE user_id = <sesión>`. No hay forma de pedir 
 | 4 | Wrapped: generador, foto fija, Stories, 3 pruebas, música y exportación | Generar un Wrapped real a partir de un historial importado |
 | 5 | `install.sh` + systemd, Docker multiarquitectura, guía de Termux, documentación de la API, CI | Instalación limpia en un LXC nuevo, medida de RAM y CPU reales |
 
-Estado: fases 1 y 2 terminadas (2026-11-26).
+Estado: fases 1 a 5 terminadas (2026-11-26).

@@ -26,6 +26,22 @@ pub struct Config {
     pub lastfm: LastfmConfig,
     pub forward: ForwardConfig,
     pub enrich: EnrichConfig,
+    pub backup: BackupConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct BackupConfig {
+    /// Copias automáticas de la BD en `<data_dir>/backups`.
+    pub enabled: bool,
+    pub keep_daily: usize,
+    pub keep_weekly: usize,
+}
+
+impl Default for BackupConfig {
+    fn default() -> Self {
+        Self { enabled: true, keep_daily: 7, keep_weekly: 4 }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -108,6 +124,7 @@ impl Default for Config {
             lastfm: LastfmConfig::default(),
             forward: ForwardConfig::default(),
             enrich: EnrichConfig::default(),
+            backup: BackupConfig::default(),
         }
     }
 }
@@ -210,6 +227,10 @@ impl Config {
         self.data_dir.join("imports")
     }
 
+    pub fn backups_dir(&self) -> PathBuf {
+        self.data_dir.join("backups")
+    }
+
     pub fn key_path(&self) -> PathBuf {
         self.master_key_file.clone().unwrap_or_else(|| self.data_dir.join("master.key"))
     }
@@ -235,6 +256,8 @@ mod tests {
         assert_eq!(c.listen, d.listen);
         assert_eq!(c.forward.base_delay_secs, d.forward.base_delay_secs);
         assert_eq!(c.listenbrainz.api_url, d.listenbrainz.api_url);
+        assert_eq!(c.backup.keep_daily, d.backup.keep_daily);
+        assert_eq!(c.backup.keep_weekly, d.backup.keep_weekly);
     }
 
     #[test]

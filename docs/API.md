@@ -1,6 +1,6 @@
 # API de GordurasFM
 
-Estado: fase 2. La documentación OpenAPI interactiva (`/api/docs`) llega en la fase 5; mientras tanto, esta es la referencia.
+Guía con ejemplos. La especificación OpenAPI 3.1 está en [`openapi.json`](openapi.json) y la sirve cada instalación en `GET /api/v1/openapi.json` (un test comprueba que documenta todas las rutas).
 
 ## Autenticación
 
@@ -28,6 +28,7 @@ Reglas al guardar: misma canción del mismo usuario a ±60 s = duplicada; pistas
 | Método y ruta | Cuerpo / parámetros | Respuesta |
 |---|---|---|
 | `GET /api/v1/salud` | — | `{"status":"ok","version":"…","db":true}` |
+| `GET /api/v1/openapi.json` | — | especificación OpenAPI 3.1 |
 | `POST /api/v1/auth/login` | `{"username","password"}` (de Navidrome) | `{"user":{…}}` + cookie. `401` si Navidrome rechaza las credenciales; `403` si la cuenta espera aprobación |
 | `POST /api/v1/auth/logout` | — | `{"ok":true}` y borra la cookie |
 | `GET /api/v1/me` | — | `{id, username, display_name, is_admin, is_approved, timezone, is_public, created_at}` |

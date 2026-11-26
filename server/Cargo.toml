@@ -14,13 +14,14 @@ chacha20poly1305 = { version = "0.11.0", features = ["alloc"] }
 chrono = { version = "0.4.45", features = ["serde"] }
 chrono-tz = "0.10.4"
 hex = "0.4.3"
+hickory-resolver = { version = "0.26.4", default-features = false, features = ["tokio", "system-config"] }
 hmac = "0.13.0"
 log = "0.4.35"
 md-5 = "0.11.0"
 mimalloc = "0.1.52"
 mime_guess = "2.0.5"
 rand = "0.10.4"
-reqwest = { version = "0.13.5", default-features = false, features = ["json", "query", "form", "stream", "hickory-dns", "gzip", "rustls-no-provider"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "query", "form", "stream", "gzip", "rustls-no-provider"] }
 rust-embed = { version = "8.14.0", features = ["include-exclude"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 serde = { version = "1.0.229", features = ["derive"] }

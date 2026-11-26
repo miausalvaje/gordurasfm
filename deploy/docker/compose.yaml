@@ -1,0 +1,41 @@
+# Navidrome + GordurasFM con Docker Compose.
+#   1. Cambia la ruta de tu música y las URL.
+#   2. docker compose up -d
+#   3. Entra en http://<IP>:8090 con tu cuenta de Navidrome, crea un token de escucha y pégalo en
+#      Navidrome → Personal → ListenBrainz.
+#
+# Si ya tienes Navidrome, quita su servicio y pon en el tuyo ND_LISTENBRAINZ_BASEURL apuntando a GordurasFM.
+
+services:
+  navidrome:
+    image: deluan/navidrome:latest
+    restart: unless-stopped
+    ports:
+      - "4533:4533"
+    environment:
+      ND_LISTENBRAINZ_ENABLED: "true"
+      # Navidrome manda aquí las escuchas (red interna de Compose).
+      ND_LISTENBRAINZ_BASEURL: "http://gordurasfm:8090/1/"
+    volumes:
+      - navidrome-data:/data
+      - /ruta/a/tu/musica:/music:ro
+
+  gordurasfm:
+    image: ghcr.io/miausalvaje/gordurasfm:latest
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    environment:
+      GFM_NAVIDROME_URL: "http://navidrome:4533"
+      GFM_PUBLIC_URL: "http://localhost:8090"   # la URL con la que entras desde el navegador
+      GFM_DEFAULT_TIMEZONE: "Europe/Madrid"
+      # GFM_LASTFM_API_KEY: "..."
+      # GFM_LASTFM_API_SECRET: "..."
+    volumes:
+      # Volumen con nombre: Docker le da el dueño correcto (usuario 65532). Si usas una carpeta
+      # del host, antes: sudo chown 65532:65532 <carpeta>
+      - gordurasfm-data:/data
+
+volumes:
+  navidrome-data:
+  gordurasfm-data:

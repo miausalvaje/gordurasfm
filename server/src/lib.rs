@@ -3,10 +3,12 @@
 pub mod admin;
 pub mod api;
 pub mod auth;
+pub mod backup;
 pub mod config;
 pub mod connections;
 pub mod crypto;
 pub mod db;
+pub mod dns;
 pub mod enrich;
 pub mod error;
 pub mod export;
@@ -73,4 +75,5 @@ pub fn spawn_background(st: &AppState) {
     tokio::spawn(enrich::run(st.clone()));
     tokio::spawn(db::maintenance(st.db.clone()));
     tokio::spawn(wrapped::run(st.clone()));
+    tokio::spawn(backup::run(st.clone()));
 }

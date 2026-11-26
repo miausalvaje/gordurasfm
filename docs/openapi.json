@@ -1,0 +1,2623 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "GordurasFM",
+    "version": "0.1.0",
+    "license": {
+      "name": "AGPL-3.0-only",
+      "identifier": "AGPL-3.0-only"
+    },
+    "description": "Estadísticas de escucha autoalojadas para Navidrome. Guía con ejemplos: docs/API.md del repositorio.\n\nLas peticiones que cambian algo (`POST`, `PUT`, `PATCH`, `DELETE`) con cookie deben llevar la cabecera `X-Requested-With` (protección CSRF). Con `Authorization: Bearer` no hace falta."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "security": [
+    {
+      "cookie": []
+    },
+    {
+      "bearer": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Sistema"
+    },
+    {
+      "name": "Sesión"
+    },
+    {
+      "name": "Tokens"
+    },
+    {
+      "name": "Conexiones"
+    },
+    {
+      "name": "Last.fm"
+    },
+    {
+      "name": "Estadísticas"
+    },
+    {
+      "name": "Imágenes"
+    },
+    {
+      "name": "Wrapped"
+    },
+    {
+      "name": "Importar"
+    },
+    {
+      "name": "Administración"
+    },
+    {
+      "name": "ListenBrainz"
+    }
+  ],
+  "paths": {
+    "/1/validate-token": {
+      "get": {
+        "tags": [
+          "ListenBrainz"
+        ],
+        "summary": "Comprueba un token de escucha",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "valid": {
+                      "type": "boolean"
+                    },
+                    "user_name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "alternativa a la cabecera Authorization"
+          }
+        ],
+        "security": [
+          {
+            "lbToken": []
+          }
+        ]
+      }
+    },
+    "/1/submit-listens": {
+      "post": {
+        "tags": [
+          "ListenBrainz"
+        ],
+        "summary": "Recibe escuchas (Navidrome)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "description": "BD no disponible"
+          }
+        },
+        "description": "`single`: 1 escucha; `import`: 1-1000; `playing_now`: 1, sin `listened_at`. `503` si la BD no está disponible (Navidrome reintenta).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "listen_type": {
+                    "type": "string",
+                    "enum": [
+                      "single",
+                      "import",
+                      "playing_now"
+                    ]
+                  },
+                  "payload": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Listen"
+                    }
+                  }
+                },
+                "required": [
+                  "listen_type",
+                  "payload"
+                ]
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "lbToken": []
+          }
+        ]
+      }
+    },
+    "/1/{rest}": {
+      "get": {
+        "tags": [
+          "ListenBrainz"
+        ],
+        "summary": "Cualquier otra ruta GET: se pasa tal cual a la API real de ListenBrainz",
+        "responses": {
+          "200": {
+            "description": "respuesta de ListenBrainz"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "rest",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/salud": {
+      "get": {
+        "tags": [
+          "Sistema"
+        ],
+        "summary": "Estado del servidor",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok",
+                        "error"
+                      ]
+                    },
+                    "version": {
+                      "type": "string"
+                    },
+                    "db": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "tags": [
+          "Sistema"
+        ],
+        "summary": "Esta especificación",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Sesión"
+        ],
+        "summary": "Entrar con la cuenta de Navidrome",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "description": "Deja la cookie `gfm_session`. `401` si Navidrome rechaza las credenciales; `403` si la cuenta espera aprobación.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password"
+                  }
+                },
+                "required": [
+                  "username",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Sesión"
+        ],
+        "summary": "Salir (borra la cookie)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": [
+          "Sesión"
+        ],
+        "summary": "Usuario actual",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Sesión"
+        ],
+        "summary": "Cambiar nombre, zona horaria o perfil público",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "display_name": {
+                    "type": "string"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "example": "Europe/Madrid"
+                  },
+                  "is_public": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tokens": {
+      "get": {
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Mis tokens (nunca se vuelven a enseñar)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TokenInfo"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Crear token de escucha (para Navidrome) o de API",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "token": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "scrobble",
+                      "api"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tokens/{id}": {
+      "delete": {
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Borrar un token",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/connections": {
+      "get": {
+        "tags": [
+          "Conexiones"
+        ],
+        "summary": "Mis conexiones",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Connection"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/connections/{provider}": {
+      "put": {
+        "tags": [
+          "Conexiones"
+        ],
+        "summary": "Conectar ListenBrainz con su token",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "description": "Solo `listenbrainz` (Last.fm se conecta con `/connections/lastfm/start`). Comprueba el token, lo guarda cifrado y reanuda lo pendiente.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "listenbrainz",
+                "lastfm"
+              ]
+            }
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Conexiones"
+        ],
+        "summary": "Activar o pausar el reenvío",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "forward_enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "forward_enabled"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "listenbrainz",
+                "lastfm"
+              ]
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Conexiones"
+        ],
+        "summary": "Desconectar (borra lo pendiente de reenviar)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "listenbrainz",
+                "lastfm"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/forward/status": {
+      "get": {
+        "tags": [
+          "Conexiones"
+        ],
+        "summary": "Cola de reenvío",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "target": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "pending",
+                          "done",
+                          "paused",
+                          "failed",
+                          "dead"
+                        ]
+                      },
+                      "count": {
+                        "type": "integer"
+                      },
+                      "last_error": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/forward/retry": {
+      "post": {
+        "tags": [
+          "Conexiones"
+        ],
+        "summary": "Reintentar lo fallido",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requeued": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/connections/lastfm/start": {
+      "get": {
+        "tags": [
+          "Last.fm"
+        ],
+        "summary": "URL para autorizar en Last.fm",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/connections/lastfm/callback": {
+      "get": {
+        "tags": [
+          "Last.fm"
+        ],
+        "summary": "Vuelta desde Last.fm (redirige a la web)",
+        "responses": {
+          "200": {
+            "description": "redirección"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          },
+          "303": {
+            "description": "a /ajustes/conexiones?lastfm=ok|error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/connections/lastfm/key": {
+      "put": {
+        "tags": [
+          "Last.fm"
+        ],
+        "summary": "Usar mi propia key de Last.fm",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "api_key": {
+                    "type": "string"
+                  },
+                  "api_secret": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "api_key",
+                  "api_secret"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Last.fm"
+        ],
+        "summary": "Volver a la key de la instancia",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/lastfm/status": {
+      "get": {
+        "tags": [
+          "Last.fm"
+        ],
+        "summary": "Qué key hay disponible",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "own_key": {
+                      "type": "boolean"
+                    },
+                    "instance_key": {
+                      "type": "boolean"
+                    },
+                    "available": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/scrobbles": {
+      "get": {
+        "tags": [
+          "Estadísticas"
+        ],
+        "summary": "Historial, de lo más nuevo a lo más viejo",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer"
+                          },
+                          "played_at": {
+                            "type": "integer",
+                            "description": "segundos Unix (UTC)"
+                          },
+                          "artist": {
+                            "type": "string"
+                          },
+                          "track": {
+                            "type": "string"
+                          },
+                          "album": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "duration_ms": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "source": {
+                            "type": "string"
+                          },
+                          "cover": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "next_before": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "segundos Unix (UTC)"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "segundos Unix (UTC)"
+            },
+            "description": "paginación: escuchas anteriores a este instante"
+          }
+        ]
+      }
+    },
+    "/api/v1/now-playing": {
+      "get": {
+        "tags": [
+          "Estadísticas"
+        ],
+        "summary": "Lo que está sonando",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "artist": {
+                      "type": "string"
+                    },
+                    "track": {
+                      "type": "string"
+                    },
+                    "album": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "duration_ms": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "client": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "since": {
+                      "type": "integer",
+                      "description": "segundos Unix (UTC)"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/stats": {
+      "get": {
+        "tags": [
+          "Estadísticas"
+        ],
+        "summary": "Portada: gráfica, totales y tops de un periodo",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "period": {
+                      "$ref": "#/components/schemas/Period"
+                    },
+                    "chart": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string"
+                          },
+                          "start": {
+                            "type": "integer",
+                            "description": "segundos Unix (UTC)"
+                          },
+                          "end": {
+                            "type": "integer",
+                            "description": "segundos Unix (UTC)"
+                          },
+                          "plays": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    },
+                    "totals": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "top_albums": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TopAlbum"
+                      }
+                    },
+                    "top_tracks": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TopTrack"
+                      }
+                    },
+                    "top_artists": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TopArtist"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "this_week",
+                "last_week",
+                "this_month",
+                "last_month",
+                "this_year",
+                "last_year",
+                "all_time"
+              ],
+              "default": "this_week"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/top/{kind}": {
+      "get": {
+        "tags": [
+          "Estadísticas"
+        ],
+        "summary": "Top paginado",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "period": {
+                      "$ref": "#/components/schemas/Period"
+                    },
+                    "page": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/TopAlbum"
+                          },
+                          {
+                            "$ref": "#/components/schemas/TopTrack"
+                          },
+                          {
+                            "$ref": "#/components/schemas/TopArtist"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "albums",
+                "tracks",
+                "artists"
+              ]
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "this_week",
+                "last_week",
+                "this_month",
+                "last_month",
+                "this_year",
+                "last_year",
+                "all_time"
+              ],
+              "default": "this_week"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/media/cover/{id}": {
+      "get": {
+        "tags": [
+          "Imágenes"
+        ],
+        "summary": "Portada de un álbum que has escuchado",
+        "responses": {
+          "200": {
+            "description": "imagen",
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                64,
+                150,
+                300,
+                600,
+                1000
+              ],
+              "default": 300
+            },
+            "description": "se redondea al más cercano"
+          }
+        ]
+      }
+    },
+    "/api/v1/media/artist/{id}": {
+      "get": {
+        "tags": [
+          "Imágenes"
+        ],
+        "summary": "Imagen de un artista",
+        "responses": {
+          "200": {
+            "description": "imagen",
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                64,
+                150,
+                300,
+                600,
+                1000
+              ],
+              "default": 300
+            },
+            "description": "se redondea al más cercano"
+          }
+        ]
+      }
+    },
+    "/api/v1/media/stream/{song_id}": {
+      "get": {
+        "tags": [
+          "Imágenes"
+        ],
+        "summary": "Audio de Navidrome (música del Wrapped). Admite Range",
+        "responses": {
+          "200": {
+            "description": "audio",
+            "content": {
+              "audio/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          },
+          "206": {
+            "description": "trozo (Range)"
+          }
+        },
+        "parameters": [
+          {
+            "name": "song_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/wrapped": {
+      "get": {
+        "tags": [
+          "Wrapped"
+        ],
+        "summary": "Años con escuchas y estado de su Wrapped",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "current_year": {
+                      "type": "integer"
+                    },
+                    "years": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "year": {
+                            "type": "integer"
+                          },
+                          "plays": {
+                            "type": "integer"
+                          },
+                          "current": {
+                            "type": "boolean"
+                          },
+                          "wrapped": {
+                            "anyOf": [
+                              {
+                                "$ref": "#/components/schemas/WrappedMeta"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/wrapped/{year}": {
+      "get": {
+        "tags": [
+          "Wrapped"
+        ],
+        "summary": "Wrapped de un año (lo genera si falta)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wrapped"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "description": "Año en curso: vista previa (`version 0`, se rehace como mucho cada hora). Años pasados: definitivo (`version 1`). `404` si no hay escuchas o es futuro.",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/wrapped/{year}/regenerate": {
+      "post": {
+        "tags": [
+          "Wrapped"
+        ],
+        "summary": "Rehacer (en años pasados crea una versión nueva)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Wrapped"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "year",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/wrapped/answers/{id}": {
+      "post": {
+        "tags": [
+          "Wrapped"
+        ],
+        "summary": "Responder una prueba (solo cuenta la primera respuesta)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "correct": {
+                      "type": "boolean"
+                    },
+                    "answers": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "enum": [
+                      "artist",
+                      "album",
+                      "track"
+                    ]
+                  },
+                  "chosen_rank": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "question",
+                  "chosen_rank"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/wrapped/image/{hash}": {
+      "get": {
+        "tags": [
+          "Wrapped"
+        ],
+        "summary": "Imagen guardada para un Wrapped tuyo",
+        "responses": {
+          "200": {
+            "description": "imagen",
+            "content": {
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "sha256"
+          }
+        ]
+      }
+    },
+    "/api/v1/import/lastfm": {
+      "post": {
+        "tags": [
+          "Importar"
+        ],
+        "summary": "Importar el historial de Last.fm",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "full",
+                      "new"
+                    ]
+                  },
+                  "username": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "mode"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/import/file": {
+      "post": {
+        "tags": [
+          "Importar"
+        ],
+        "summary": "Importar un fichero CSV o JSON (hasta 200 MB)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job": {
+                      "$ref": "#/components/schemas/Job"
+                    },
+                    "format": {
+                      "type": "string"
+                    },
+                    "listens": {
+                      "type": "integer"
+                    },
+                    "invalid": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/import/jobs": {
+      "get": {
+        "tags": [
+          "Importar"
+        ],
+        "summary": "Últimos 50 trabajos",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Job"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/import/jobs/{id}": {
+      "get": {
+        "tags": [
+          "Importar"
+        ],
+        "summary": "Un trabajo",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/import/jobs/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Importar"
+        ],
+        "summary": "Cancelar",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/import/jobs/{id}/resume": {
+      "post": {
+        "tags": [
+          "Importar"
+        ],
+        "summary": "Seguir por donde iba",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/export": {
+      "get": {
+        "tags": [
+          "Importar"
+        ],
+        "summary": "Exportar todo el historial (se puede volver a importar)",
+        "responses": {
+          "200": {
+            "description": "fichero",
+            "content": {
+              "application/json": {},
+              "text/csv": {}
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "default": "json"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/lastfm": {
+      "get": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Key de Last.fm de la instancia",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "config",
+                        "settings",
+                        "none"
+                      ]
+                    },
+                    "api_key": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Poner la key de la instancia (el secret se guarda cifrado)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "api_key": {
+                    "type": "string"
+                  },
+                  "api_secret": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "api_key",
+                  "api_secret"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Quitar la key de la instancia",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Usuarios con su número de escuchas",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "integer"
+                      },
+                      "username": {
+                        "type": "string"
+                      },
+                      "is_admin": {
+                        "type": "boolean"
+                      },
+                      "is_approved": {
+                        "type": "boolean"
+                      },
+                      "created_at": {
+                        "type": "integer",
+                        "description": "segundos Unix (UTC)"
+                      },
+                      "last_login_at": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "description": "segundos Unix (UTC)"
+                      },
+                      "scrobbles": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{id}": {
+      "patch": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Aprobar o hacer admin (al quitar la aprobación se cierran sus sesiones)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "is_approved": {
+                    "type": "boolean"
+                  },
+                  "is_admin": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "cookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "gfm_session",
+        "description": "Sesión de la web (POST /api/v1/auth/login)"
+      },
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Token de tipo `api` (POST /api/v1/tokens)"
+      },
+      "lbToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "`Token <token de escucha>` (formato de ListenBrainz)"
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Error (400, 401, 403, 404, 502 o 500)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "código"
+          },
+          "message": {
+            "type": "string",
+            "description": "texto en español"
+          }
+        },
+        "required": [
+          "error",
+          "message"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "username": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "is_admin": {
+            "type": "boolean"
+          },
+          "is_approved": {
+            "type": "boolean"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "is_public": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "integer",
+            "description": "segundos Unix (UTC)"
+          }
+        }
+      },
+      "TokenInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "scrobble",
+              "api"
+            ]
+          },
+          "hint": {
+            "type": "string"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "integer",
+            "description": "segundos Unix (UTC)"
+          },
+          "last_used_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "segundos Unix (UTC)"
+          }
+        }
+      },
+      "Connection": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "listenbrainz",
+              "lastfm"
+            ]
+          },
+          "remote_username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "forward_enabled": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "type": "integer",
+            "description": "segundos Unix (UTC)"
+          }
+        }
+      },
+      "Period": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "from": {
+            "type": "integer",
+            "description": "segundos Unix (UTC)"
+          },
+          "to": {
+            "type": "integer",
+            "description": "segundos Unix (UTC)"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "day",
+              "month",
+              "year"
+            ]
+          },
+          "previous": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "integer",
+                "description": "segundos Unix (UTC)"
+              },
+              "to": {
+                "type": "integer",
+                "description": "segundos Unix (UTC)"
+              }
+            }
+          }
+        }
+      },
+      "TopAlbum": {
+        "type": "object",
+        "properties": {
+          "rank": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "cover": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plays": {
+            "type": "integer"
+          },
+          "last_played": {
+            "type": "integer",
+            "description": "segundos Unix (UTC)"
+          }
+        }
+      },
+      "TopTrack": {
+        "type": "object",
+        "properties": {
+          "rank": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "album": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "album_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "cover": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "duration_ms": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "plays": {
+            "type": "integer"
+          },
+          "last_played": {
+            "type": "integer",
+            "description": "segundos Unix (UTC)"
+          }
+        }
+      },
+      "TopArtist": {
+        "type": "object",
+        "properties": {
+          "rank": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "covers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "plays": {
+            "type": "integer"
+          },
+          "last_played": {
+            "type": "integer",
+            "description": "segundos Unix (UTC)"
+          }
+        }
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "lastfm",
+              "file"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "progress_done": {
+            "type": "integer"
+          },
+          "progress_total": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "stats": {
+            "type": "object",
+            "properties": {
+              "stored": {
+                "type": "integer"
+              },
+              "duplicates": {
+                "type": "integer"
+              },
+              "ignored": {
+                "type": "integer"
+              },
+              "invalid": {
+                "type": "integer"
+              }
+            }
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "WrappedMeta": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "is_final": {
+            "type": "boolean"
+          },
+          "generated_at": {
+            "type": "integer",
+            "description": "segundos Unix (UTC)"
+          },
+          "outdated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Wrapped": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "year": {
+            "type": "integer"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "is_final": {
+            "type": "boolean"
+          },
+          "generated_at": {
+            "type": "integer",
+            "description": "segundos Unix (UTC)"
+          },
+          "outdated": {
+            "type": "boolean"
+          },
+          "answers": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "data": {
+            "type": "object",
+            "description": "foto fija del año (ver docs/API.md)",
+            "additionalProperties": true
+          }
+        }
+      },
+      "Listen": {
+        "type": "object",
+        "properties": {
+          "listened_at": {
+            "type": "integer",
+            "description": "segundos Unix (UTC)"
+          },
+          "track_metadata": {
+            "type": "object",
+            "properties": {
+              "artist_name": {
+                "type": "string"
+              },
+              "track_name": {
+                "type": "string"
+              },
+              "release_name": {
+                "type": "string"
+              },
+              "additional_info": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "artist_name",
+              "track_name"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

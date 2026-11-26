@@ -35,3 +35,8 @@ delay_ms = 100
 base_delay_secs = 30        # primer reintento; se dobla en cada fallo
 max_delay_secs = 21600      # tope: 6 h
 poll_secs = 15              # revisión periódica de la cola
+
+[backup]
+enabled = true           # copias de la BD con VACUUM INTO en <data_dir>/backups
+keep_daily = 7           # copias diarias que se guardan
+keep_weekly = 4          # copias semanales que se guardan

@@ -1,0 +1,50 @@
+[Unit]
+Description=GordurasFM (estadísticas de escucha para Navidrome)
+Documentation=https://github.com/miausalvaje/gordurasfm
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gordurasfm
+Group=gordurasfm
+ExecStart=/usr/local/bin/gordurasfm serve --config /etc/gordurasfm/config.toml
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+Environment=RUST_LOG=info,tower_http=warn,sqlx=warn
+UMask=0027
+LimitNOFILE=8192
+
+# Aislamiento (funciona en un LXC sin privilegios de Proxmox).
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/gordurasfm
+ProtectHome=yes
+PrivateTmp=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=
+PrivateDevices=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RemoveIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+# Tope de memoria: en reposo usa muy poco; las importaciones grandes son lo que más gasta.
+MemoryMax=384M
+
+[Install]
+WantedBy=multi-user.target
