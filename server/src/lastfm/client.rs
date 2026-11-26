@@ -268,7 +268,7 @@ mod tests {
     #[tokio::test]
     async fn sin_secret_no_firma_ni_llama() {
         // Puerto 9: si llegara a hacer la petición, daría error de red (Retry), no Auth.
-        let lfm = LastFm::new(reqwest::Client::new(), "http://127.0.0.1:9/2.0/");
+        let lfm = LastFm::new(crate::http_client::build(), "http://127.0.0.1:9/2.0/");
         let key = Key { api_key: "k".into(), secret: String::new() };
         assert!(!key.can_sign());
         let r = lfm.call("auth.getSession", BTreeMap::new(), &key, true, false).await;
