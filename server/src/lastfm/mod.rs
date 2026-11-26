@@ -21,22 +21,27 @@ use crate::{
 };
 use client::{Key, LfmError};
 
+/// Mensaje cuando la key no tiene secret.
+pub const NO_SECRET: &str =
+    "la key de Last.fm de esta instancia no tiene secret: sirve para importar, pero para conectar tu cuenta hace falta también el secret (admin) o tu propia key";
+
 /// Placeholder de Last.fm cuando no hay portada (no vale la pena guardarlo).
 const NO_IMAGE: &str = "2a96cbd8b46e442fc41c2b86b821562f";
 /// Hosts de los que se aceptan portadas de Last.fm (para no descargar cualquier URL).
 pub const IMAGE_HOSTS: &[&str] = &["lastfm.freetls.fastly.net", "lastfm-img2.akamaized.net", "userserve-ak.last.fm"];
 
 /// Key de la instancia: configuración o ajustes de la BD.
+///
+/// El secret es opcional: sin él la key sirve para importar historiales (lecturas sin firmar), pero
+/// no para conectar cuentas ni reenviar escuchas (`Key::can_sign`).
 pub async fn instance_key(st: &AppState) -> anyhow::Result<Option<Key>> {
-    if let (Some(k), Some(s)) = (&st.cfg.lastfm.api_key, &st.cfg.lastfm.api_secret) {
-        return Ok(Some(Key { api_key: k.clone(), secret: s.clone() }));
+    if let Some(k) = &st.cfg.lastfm.api_key {
+        let secret = st.cfg.lastfm.api_secret.clone().unwrap_or_default();
+        return Ok(Some(Key { api_key: k.clone(), secret }));
     }
     let k = settings::get(&st.db, "lastfm_api_key").await?;
     let s = settings::get_secret(&st.db, &st.crypto, "lastfm_api_secret").await?;
-    Ok(match (k, s) {
-        (Some(api_key), Some(secret)) => Some(Key { api_key, secret }),
-        _ => None,
-    })
+    Ok(k.map(|api_key| Key { api_key, secret: s.unwrap_or_default() }))
 }
 
 /// Key propia del usuario, si la tiene.
@@ -131,6 +136,9 @@ pub async fn start(State(st): State<AppState>, CurrentUser(u): CurrentUser) -> A
     let key = key_for(&st, u.id)
         .await?
         .ok_or_else(|| AppError::BadRequest("falta configurar la API key de Last.fm (admin o tu propia key)".into()))?;
+    if !key.can_sign() {
+        return Err(AppError::BadRequest(NO_SECRET.into()));
+    }
     let state = crate::crypto::random_token();
     {
         let mut m = st.lastfm_pending.lock().unwrap();

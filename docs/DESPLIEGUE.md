@@ -46,7 +46,7 @@ Registros: `journalctl -u gordurasfm -f`.
 
 ```sh
 sudo gordurasfm-update                 # última versión
-sudo gordurasfm-update --version v0.2.0
+sudo gordurasfm-update --version v0.1.1
 ```
 
 Antes de cambiar el binario guarda una copia de la BD (`backups/manual-*.db`). Si la versión nueva no arranca en 30 s, vuelve a poner la anterior. Si además la nueva había migrado la BD, la anterior no arrancará con ella: restaura la copia (sección 5).
