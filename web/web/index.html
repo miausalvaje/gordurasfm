@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="GordurasFM: tus estadísticas de escucha">
+  <meta name="theme-color" content="#0E0E12">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GordurasFM">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>GordurasFM</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0E0E12; }
+    #carga { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+    #carga div { width: 56px; height: 56px; border-radius: 50%;
+      background: conic-gradient(#FF4D6D, #FF9E3D, #FF4D6D); animation: gira 1s linear infinite;
+      mask: radial-gradient(circle, transparent 55%, #000 56%); -webkit-mask: radial-gradient(circle, transparent 55%, #000 56%); }
+    @keyframes gira { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="carga"><div></div></div>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

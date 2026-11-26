@@ -78,6 +78,12 @@ pub struct ScrobbleItem {
     pub album: Option<String>,
     pub duration_ms: Option<i64>,
     pub source: String,
+    #[serde(skip)]
+    pub album_id: Option<i64>,
+    #[serde(skip)]
+    pub cover_ref: Option<String>,
+    #[sqlx(skip)]
+    pub cover: Option<String>,
 }
 
 /// GET /api/v1/scrobbles — historial del usuario, de lo más nuevo a lo más viejo.
@@ -88,9 +94,9 @@ async fn scrobbles(
 ) -> AppResult<Json<Value>> {
     let limit = q.limit.unwrap_or(50).clamp(1, 500);
     let before = q.before.unwrap_or(i64::MAX);
-    let items: Vec<ScrobbleItem> = sqlx::query_as(
+    let mut items: Vec<ScrobbleItem> = sqlx::query_as(
         "SELECT s.id, s.played_at, a.name AS artist, t.title AS track, al.title AS album, \
-                COALESCE(s.duration_ms, t.duration_ms) AS duration_ms, s.source \
+                COALESCE(s.duration_ms, t.duration_ms) AS duration_ms, s.source, s.album_id, al.cover_ref \
          FROM scrobbles s JOIN artists a ON a.id = s.artist_id JOIN tracks t ON t.id = s.track_id \
          LEFT JOIN albums al ON al.id = s.album_id \
          WHERE s.user_id = ? AND s.played_at < ? ORDER BY s.played_at DESC, s.id DESC LIMIT ?",
@@ -100,6 +106,11 @@ async fn scrobbles(
     .bind(limit)
     .fetch_all(&st.db)
     .await?;
+    for it in &mut items {
+        if let (Some(id), Some(_)) = (it.album_id, &it.cover_ref) {
+            it.cover = Some(format!("/api/v1/media/cover/{id}"));
+        }
+    }
     let (total,): (i64,) =
         sqlx::query_as("SELECT COUNT(*) FROM scrobbles WHERE user_id = ?").bind(u.id).fetch_one(&st.db).await?;
     let next = if items.len() as i64 == limit { items.last().map(|i| i.played_at) } else { None };

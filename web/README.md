@@ -1,3 +1,8 @@
 # Web (Flutter)
 
-Se crea en la fase 3. El binario embebe `web/build/web`; mientras no exista, `server/build.rs` pone una página provisional.
+Interfaz de GordurasFM en Flutter Web. El binario del servidor la embebe desde `web/build/web`
+(si no existe, `server/build.rs` pone una página provisional).
+
+- Compilar: `scripts/build-web.sh` (sin CDN: CanvasKit y fuentes van dentro del binario).
+- Probar: `flutter analyze && flutter test`.
+- Demo con datos inventados: `scripts/demo.sh` (Navidrome de pruebas + dos años de historial).

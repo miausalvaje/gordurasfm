@@ -1,0 +1,44 @@
+name: gordurasfm
+description: "GordurasFM: estadísticas de escucha y Wrapped para Navidrome"
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.14.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_web_plugins:
+    sdk: flutter
+  fl_chart: ^1.3.1
+  flutter_animate: ^4.5.2
+  go_router: ^18.1.4
+  http: ^1.6.0
+  material_ui: ^1.1.0
+  web: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+    - family: InterDisplay
+      fonts:
+        - asset: assets/fonts/InterDisplay-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/InterDisplay-Black.ttf
+          weight: 900
