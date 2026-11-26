@@ -299,7 +299,7 @@ Cada consulta de datos lleva `WHERE user_id = <sesión>`. No hay forma de pedir 
 (Las cifras del ejemplo son de mentira, solo enseñan la forma.)
 
 ### 7.3 Stories (Flutter)
-- Un `WrappedPlayer` con las 15 diapositivas (§8 de tus requisitos) en un `PageView` sin gestos libres, controlado por un temporizador por diapositiva (5-8 s), con barras de progreso arriba. Tocar a la derecha avanza, a la izquierda retrocede y mantener pulsado pausa.
+- Un `WrappedPlayer` con las 15 diapositivas (§8 de tus requisitos) en un `PageView` sin gestos libres, controlado por un temporizador de 15 s por diapositiva (`kSlideSeconds` en `web/lib/wrapped/player.dart`; al principio eran 5-8 s y se subió por la issue #2), con barras de progreso arriba. Tocar a la derecha avanza, a la izquierda retrocede y mantener pulsado pausa.
 - Formato 9:16: en móvil a pantalla completa; en escritorio, un lienzo 9:16 centrado sobre un fondo desenfocado de la portada principal.
 - Animaciones con `flutter_animate` y fondos con degradados animados dibujados con `CustomPainter` (formas que se mueven). La paleta se saca de las portadas. Diseño propio, sin recursos ni identidad de Spotify.
 - **Pruebas** (diapositivas 4, 6 y 8): el temporizador se para; aparecen las opciones (top 5 real, o las que haya si hay menos), mezcladas con `Random` en cada visualización. Se elige una, se pulsa «Confirmar», hay 1,5 s de suspense (redoble visual y oscurecido) y se revela con una animación de acierto o fallo y el ranking del 1 al 5 con las escuchas exactas. La respuesta se guarda en `wrapped_answers`. La diapositiva 15 enseña «¡Has acertado X de 3!».

@@ -19,10 +19,13 @@ import 'quiz.dart';
 import 'slides.dart';
 import 'zip.dart';
 
+/// Segundos que dura cada diapositiva (y cada prueba, desde que se revela la respuesta).
+const kSlideSeconds = 15;
+const _slideDuration = Duration(seconds: kSlideSeconds);
+
 class _Spec {
-  const _Spec(this.kind, this.seconds, [this.q]);
+  const _Spec(this.kind, [this.q]);
   final String kind;
-  final int seconds;
 
   /// Pregunta (artist, album, track) en las pruebas y en los ganadores.
   final String? q;
@@ -50,7 +53,7 @@ class _WrappedPlayerScreenState extends State<WrappedPlayerScreen> with TickerPr
     vsync: this,
     duration: const Duration(milliseconds: 1800),
   );
-  late final AnimationController _progress = AnimationController(vsync: this, duration: const Duration(seconds: 6))
+  late final AnimationController _progress = AnimationController(vsync: this, duration: _slideDuration)
     ..addStatusListener((s) {
       if (s == AnimationStatus.completed && _i < _slides.length - 1 && !_still) _go(_i + 1);
     });
@@ -85,17 +88,17 @@ class _WrappedPlayerScreenState extends State<WrappedPlayerScreen> with TickerPr
   Future<void> _load() async {
     try {
       final d = WrappedData.fromJson(await api.get('/api/v1/wrapped/${widget.year}') as Map<String, dynamic>);
-      final slides = <_Spec>[const _Spec('intro', 6), const _Spec('plays', 6), const _Spec('time', 7)];
+      final slides = <_Spec>[const _Spec('intro'), const _Spec('plays'), const _Spec('time')];
       for (final (q, list) in [('artist', d.topArtists), ('album', d.topAlbums), ('track', d.topTracks)]) {
-        if (list.length >= 2) slides.add(_Spec('quiz', 6, q));
-        if (list.isNotEmpty) slides.add(_Spec('winner', 6, q));
+        if (list.length >= 2) slides.add(_Spec('quiz', q));
+        if (list.isNotEmpty) slides.add(_Spec('winner', q));
       }
       for (final (q, list) in [('artist', d.topArtists), ('track', d.topTracks), ('album', d.topAlbums)]) {
-        if (list.isNotEmpty) slides.add(_Spec('top', 8, q));
+        if (list.isNotEmpty) slides.add(_Spec('top', q));
       }
-      slides.add(const _Spec('evolution', 9));
-      if (d.topMonth != null) slides.add(const _Spec('month', 7));
-      slides.add(const _Spec('summary', 8));
+      slides.add(const _Spec('evolution'));
+      if (d.topMonth != null) slides.add(const _Spec('month'));
+      slides.add(const _Spec('summary'));
       final pal = await paletteFrom([
         ?d.topAlbums.firstOrNull?.image,
         ?d.topArtists.firstOrNull?.image,
@@ -135,7 +138,6 @@ class _WrappedPlayerScreenState extends State<WrappedPlayerScreen> with TickerPr
   void _go(int i) {
     setState(() => _i = i.clamp(0, _slides.length - 1));
     _intro.forward(from: 0);
-    _progress.duration = Duration(seconds: _spec.seconds);
     if (_blockedByQuiz) {
       _progress.value = 0;
     } else if (_held) {
@@ -168,7 +170,6 @@ class _WrappedPlayerScreenState extends State<WrappedPlayerScreen> with TickerPr
 
   void _quizRevealed() {
     if (!mounted || !_spec.isQuiz) return;
-    _progress.duration = const Duration(seconds: 6);
     if (!_held) _progress.forward(from: 0);
   }
 
