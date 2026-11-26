@@ -57,6 +57,7 @@ class _WrappedPlayerScreenState extends State<WrappedPlayerScreen> with TickerPr
     vsync: this,
     duration: const Duration(milliseconds: 1800),
   );
+
   /// Temporizador de cada diapositiva.
   late final AnimationController _progress;
   BackgroundMusic? _music;
