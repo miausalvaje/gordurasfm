@@ -23,6 +23,11 @@ pub async fn run(st: AppState) {
         return;
     }
     tracing::info!("enriquecedor en marcha");
+    match recover_covers(&st).await {
+        Ok(n) if n > 0 => tracing::info!(albumes = n, "portadas recuperadas de las escuchas guardadas"),
+        Ok(_) => {}
+        Err(e) => tracing::warn!(error = %e, "recuperando portadas"),
+    }
     loop {
         loop {
             match pass(&st).await {
@@ -48,6 +53,31 @@ pub async fn pass(st: &AppState) -> anyhow::Result<usize> {
     n += albums(st).await?;
     n += tracks(st).await?;
     n += artists(st).await?;
+    Ok(n)
+}
+
+/// Álbumes sin portada cuyas escuchas guardan una URL de imagen de Last.fm (por ejemplo, de cuando
+/// el host de las imágenes aún no estaba admitido): se les pone esa portada.
+async fn recover_covers(st: &AppState) -> anyhow::Result<usize> {
+    let rows: Vec<(i64, String)> = sqlx::query_as(
+        "SELECT s.album_id, json_extract(s.raw, '$.image') FROM scrobbles s JOIN albums al ON al.id = s.album_id \
+         WHERE al.cover_ref IS NULL AND json_extract(s.raw, '$.image') IS NOT NULL GROUP BY s.album_id",
+    )
+    .fetch_all(&st.db)
+    .await?;
+    let mut n = 0;
+    for (album_id, url) in rows {
+        if !crate::scrobble::allowed_cover_url(&url) {
+            continue;
+        }
+        let _turno = st.write_lock.lock().await;
+        let r = sqlx::query("UPDATE albums SET cover_ref = ? WHERE id = ? AND cover_ref IS NULL")
+            .bind(format!("url:{url}"))
+            .bind(album_id)
+            .execute(&st.db)
+            .await?;
+        n += r.rows_affected() as usize;
+    }
     Ok(n)
 }
 

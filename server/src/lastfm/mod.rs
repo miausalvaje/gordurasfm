@@ -28,7 +28,12 @@ pub const NO_SECRET: &str =
 /// Placeholder de Last.fm cuando no hay portada (no vale la pena guardarlo).
 const NO_IMAGE: &str = "2a96cbd8b46e442fc41c2b86b821562f";
 /// Hosts de los que se aceptan portadas de Last.fm (para no descargar cualquier URL).
-pub const IMAGE_HOSTS: &[&str] = &["lastfm.freetls.fastly.net", "lastfm-img2.akamaized.net", "userserve-ak.last.fm"];
+pub const IMAGE_HOSTS: &[&str] = &[
+    "lastfm.freetls.fastly.net",
+    "lastfm-img.freetls.fastly.net",
+    "lastfm-img2.akamaized.net",
+    "userserve-ak.last.fm",
+];
 
 /// Key de la instancia: configuración o ajustes de la BD.
 ///

@@ -232,6 +232,7 @@ mod tests {
     #[test]
     fn solo_portadas_de_last_fm() {
         assert!(allowed_cover_url("https://lastfm.freetls.fastly.net/i/u/300x300/x.jpg"));
+        assert!(allowed_cover_url("https://lastfm-img.freetls.fastly.net/i/u/300x300/x.jpg"));
         assert!(!allowed_cover_url("http://lastfm.freetls.fastly.net/i/u/x.jpg"));
         assert!(!allowed_cover_url("https://lastfm.freetls.fastly.net.evil.com/x.jpg"));
         assert!(!allowed_cover_url("https://192.168.1.1/x.jpg"));
