@@ -26,7 +26,7 @@ pub const NO_SECRET: &str =
     "la key de Last.fm de esta instancia no tiene secret: sirve para importar, pero para conectar tu cuenta hace falta también el secret (admin) o tu propia key";
 
 /// Placeholder de Last.fm cuando no hay portada (no vale la pena guardarlo).
-const NO_IMAGE: &str = "2a96cbd8b46e442fc41c2b86b821562f";
+pub(crate) const NO_IMAGE: &str = "2a96cbd8b46e442fc41c2b86b821562f";
 /// Hosts de los que se aceptan portadas de Last.fm (para no descargar cualquier URL).
 pub const IMAGE_HOSTS: &[&str] = &[
     "lastfm.freetls.fastly.net",

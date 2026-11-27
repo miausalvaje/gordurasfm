@@ -51,6 +51,7 @@ pub async fn pass(st: &AppState) -> anyhow::Result<usize> {
     let mut n = 0;
     // Las búsquedas en Navidrome no bloquean; las escrituras van con turno (ver `write_lock`).
     n += albums(st).await?;
+    n += lastfm_covers(st).await?;
     n += tracks(st).await?;
     n += artists(st).await?;
     Ok(n)
@@ -79,6 +80,104 @@ async fn recover_covers(st: &AppState) -> anyhow::Result<usize> {
         n += r.rows_affected() as usize;
     }
     Ok(n)
+}
+
+/// Nombres como los guarda Last.fm: guiones raros → `-`, comilla tipográfica → `'`.
+fn lf_norm(t: &str) -> String {
+    t.replace(['\u{2010}', '\u{2011}'], "-").replace('\u{2019}', "'")
+}
+
+/// Variantes del artista para buscar en Last.fm: entero y solo el primero («A • B», «A & B», «A ft B»).
+fn artist_variants(a: &str) -> Vec<String> {
+    let a = lf_norm(a);
+    let mut cut = a.len();
+    for sep in [" • ", " & ", " ft ", " ft. ", " feat ", " feat. "] {
+        if let Some(i) = a.find(sep) {
+            cut = cut.min(i);
+        }
+    }
+    let mut v = vec![a.clone()];
+    if cut < a.len() {
+        v.push(a[..cut].trim().to_string());
+    }
+    v
+}
+
+/// Variantes del título: entero y sin lo que va entre paréntesis/corchetes ni « - Single»/« - EP».
+fn title_variants(t: &str) -> Vec<String> {
+    let t = lf_norm(t);
+    let mut v = vec![t.clone()];
+    let mut base = t.as_str();
+    if let Some(i) = [base.find(" ("), base.find(" [")].into_iter().flatten().min() {
+        base = base[..i].trim();
+    }
+    for suf in [" - Single", " - EP"] {
+        base = base.strip_suffix(suf).unwrap_or(base);
+    }
+    if !base.is_empty() && base != t {
+        v.push(base.to_string());
+    }
+    v
+}
+
+/// Álbumes que Navidrome no tiene y siguen sin portada: se pide a Last.fm (`album.getInfo` y, si no,
+/// `album.search`). Se anota la fecha para no volver a preguntar antes de una semana.
+async fn lastfm_covers(st: &AppState) -> anyhow::Result<usize> {
+    let Some(key) = crate::lastfm::instance_key(st).await? else { return Ok(0) };
+    let t = now();
+    let rows: Vec<(i64, String, String)> = sqlx::query_as(
+        "SELECT al.id, ar.name, al.title FROM albums al JOIN artists ar ON ar.id = al.artist_id \
+         WHERE al.cover_ref IS NULL AND (al.lf_checked_at IS NULL OR al.lf_checked_at < ?) LIMIT ?",
+    )
+    .bind(t - RECHECK_SECS)
+    .bind(BATCH)
+    .fetch_all(&st.db)
+    .await?;
+    for (id, artist, title) in &rows {
+        {
+            let _turno = st.write_lock.lock().await;
+            sqlx::query("UPDATE albums SET lf_checked_at = ? WHERE id = ?").bind(t).bind(id).execute(&st.db).await?;
+        }
+        let mut found: Option<String> = None;
+        let mut failed = false;
+        'buscar: for a in artist_variants(artist) {
+            for ti in title_variants(title) {
+                match st.lastfm.album_image(&key, &a, &ti).await {
+                    Ok(Some(u)) => {
+                        found = Some(u);
+                        break 'buscar;
+                    }
+                    Ok(None) => {}
+                    Err(e) => {
+                        tracing::debug!(error = ?e, "portada en Last.fm");
+                        failed = true;
+                        break 'buscar;
+                    }
+                }
+                pause(st).await;
+            }
+        }
+        if found.is_none() && !failed {
+            let a = artist_variants(artist).pop().unwrap_or_default();
+            found = st.lastfm.search_album_image(&key, &a, &lf_norm(title)).await.ok().flatten();
+        }
+        if failed {
+            // Fallo pasajero: se reintenta en la próxima pasada, no dentro de una semana.
+            let _turno = st.write_lock.lock().await;
+            sqlx::query("UPDATE albums SET lf_checked_at = NULL WHERE id = ?").bind(id).execute(&st.db).await?;
+            return Ok(0);
+        }
+        if let Some(u) = found.filter(|u| crate::scrobble::allowed_cover_url(u)) {
+            let _turno = st.write_lock.lock().await;
+            sqlx::query("UPDATE albums SET cover_ref = ? WHERE id = ? AND cover_ref IS NULL")
+                .bind(format!("url:{u}"))
+                .bind(id)
+                .execute(&st.db)
+                .await?;
+        }
+        pause(st).await;
+    }
+    Ok(rows.len())
 }
 
 async fn creds_for(st: &AppState, sql_user: &str, id: i64) -> anyhow::Result<Option<Creds>> {
@@ -279,4 +378,25 @@ async fn artists(st: &AppState) -> anyhow::Result<usize> {
         pause(st).await;
     }
     Ok(rows.len())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn variantes_de_artista_y_titulo() {
+        assert_eq!(artist_variants("F\u{2010}777"), vec!["F-777"]);
+        assert_eq!(artist_variants("MDK • Morgan King"), vec!["MDK • Morgan King", "MDK"]);
+        assert_eq!(artist_variants("S3RL ft Sara"), vec!["S3RL ft Sara", "S3RL"]);
+        assert_eq!(
+            title_variants("Scaled And Icy (Saturation Edition (hmv Exclusive Sleeve))"),
+            vec!["Scaled And Icy (Saturation Edition (hmv Exclusive Sleeve))", "Scaled And Icy"]
+        );
+        assert_eq!(
+            title_variants("To Your Beat - Single (feat. hannah)"),
+            vec!["To Your Beat - Single (feat. hannah)", "To Your Beat"]
+        );
+        assert_eq!(title_variants("Raptor"), vec!["Raptor"]);
+    }
 }

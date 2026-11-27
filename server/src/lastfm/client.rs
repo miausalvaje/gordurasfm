@@ -91,6 +91,16 @@ fn classify(code: i64, msg: String) -> LfmError {
     }
 }
 
+/// La imagen más grande que no sea la genérica de «sin imagen» de Last.fm.
+fn best_image(v: Option<&Value>) -> Option<String> {
+    v?.as_array()?.iter().rev().find_map(|i| {
+        i.get("#text")
+            .and_then(Value::as_str)
+            .filter(|u| !u.is_empty() && !u.contains(super::NO_IMAGE))
+            .map(str::to_string)
+    })
+}
+
 fn as_list(v: Option<&Value>) -> Vec<Value> {
     match v {
         Some(Value::Array(a)) => a.clone(),
@@ -167,6 +177,36 @@ impl LastFm {
         p.insert("user".to_string(), user.to_string());
         let v = self.call("user.getInfo", p, key, false, false).await?;
         Ok(v.pointer("/user/name").and_then(Value::as_str).unwrap_or(user).to_string())
+    }
+
+    /// Imagen grande de un álbum (`album.getInfo`). `Ok(None)` si Last.fm no lo conoce o no tiene imagen.
+    pub async fn album_image(&self, key: &Key, artist: &str, album: &str) -> Result<Option<String>, LfmError> {
+        let mut p = BTreeMap::new();
+        p.insert("artist".to_string(), artist.to_string());
+        p.insert("album".to_string(), album.to_string());
+        p.insert("autocorrect".to_string(), "1".to_string());
+        match self.call("album.getInfo", p, key, false, false).await {
+            Ok(v) => Ok(best_image(v.pointer("/album/image"))),
+            Err(LfmError::NotFound(_)) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Busca un álbum por título (`album.search`) y devuelve la imagen del que sea del artista dado.
+    pub async fn search_album_image(&self, key: &Key, artist: &str, album: &str) -> Result<Option<String>, LfmError> {
+        let mut p = BTreeMap::new();
+        p.insert("album".to_string(), album.to_string());
+        p.insert("limit".to_string(), "10".to_string());
+        let v = match self.call("album.search", p, key, false, false).await {
+            Ok(v) => v,
+            Err(LfmError::NotFound(_)) => return Ok(None),
+            Err(e) => return Err(e),
+        };
+        let want = artist.to_lowercase();
+        Ok(as_list(v.pointer("/results/albummatches/album"))
+            .iter()
+            .filter(|m| m.get("artist").and_then(Value::as_str).is_some_and(|a| a.to_lowercase() == want))
+            .find_map(|m| best_image(m.get("image"))))
     }
 
     /// Una página de `user.getRecentTracks` (de lo más nuevo a lo más viejo).
