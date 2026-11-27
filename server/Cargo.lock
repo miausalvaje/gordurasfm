@@ -772,8 +772,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "gordurasfm"
-version = "0.1.3"
+name = "ownfm"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",

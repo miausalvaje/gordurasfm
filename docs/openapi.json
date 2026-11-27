@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "GordurasFM",
-    "version": "0.1.3",
+    "title": "OwnFM",
+    "version": "0.2.0",
     "license": {
       "name": "AGPL-3.0-only",
       "identifier": "AGPL-3.0-only"
@@ -290,7 +290,7 @@
             "$ref": "#/components/responses/Error"
           }
         },
-        "description": "Deja la cookie `gfm_session`. `401` si Navidrome rechaza las credenciales; `403` si la cuenta espera aprobación.",
+        "description": "Deja la cookie `ownfm_session`. `401` si Navidrome rechaza las credenciales; `403` si la cuenta espera aprobación.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2181,7 +2181,7 @@
       "cookie": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "gfm_session",
+        "name": "ownfm_session",
         "description": "Sesión de la web (POST /api/v1/auth/login)"
       },
       "bearer": {

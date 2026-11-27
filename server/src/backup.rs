@@ -2,7 +2,7 @@
 //!
 //! - Diarias (`diaria-*.db`) y semanales (`semanal-*.db`) en `<data_dir>/backups`, con rotación.
 //! - Antes de aplicar una migración nueva (`pre-migracion-*.db`, ver `db::open`).
-//! - A mano: `gordurasfm backup` (lo usa el actualizador antes de cambiar el binario).
+//! - A mano: `ownfm backup` (lo usa el actualizador antes de cambiar el binario).
 
 use std::{
     path::{Path, PathBuf},
@@ -123,7 +123,7 @@ mod tests {
     use super::*;
 
     async fn file_db(dir: &Path) -> Db {
-        let db = crate::db::open(&dir.join("gordurasfm.db")).await.unwrap();
+        let db = crate::db::open(&dir.join("ownfm.db")).await.unwrap();
         sqlx::query("INSERT INTO users (username, display_name, created_at) VALUES ('ana', 'Ana', 0)")
             .execute(&db)
             .await

@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Colores de GordurasFM.
+/// Colores de OwnFM.
 class C {
   C._();
   static const bg = Color(0xFF0E0E12);

@@ -1,4 +1,4 @@
-# GordurasFM en Android con Termux
+# OwnFM en Android con Termux
 
 Se usa el **binario nativo `aarch64`**. Es estático y trae sus certificados, zonas horarias y resolutor DNS, así que funciona en Termux sin instalar nada más (ni `proot`, ni Docker).
 
@@ -16,23 +16,23 @@ Se usa el **binario nativo `aarch64`**. Es estático y trae sus certificados, zo
 
 ```sh
 pkg install -y curl
-curl -fsSL https://raw.githubusercontent.com/miausalvaje/gordurasfm/main/deploy/termux/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/miausalvaje/ownfm/main/deploy/termux/install.sh | bash
 ```
 
 Opciones: `--navidrome-url URL` (por defecto `http://127.0.0.1:4533`, Navidrome en el mismo móvil), `--port N`, `--version vX.Y.Z`, `--binary RUTA`.
 
 El script:
 1. Instala `termux-services` si falta.
-2. Descarga `gordurasfm-aarch64-linux-musl`, comprueba su SHA-256 y lo deja en `$PREFIX/bin/gordurasfm`.
-3. Crea `~/.gordurasfm/config.toml` y la carpeta de datos `~/.gordurasfm/data` (BD, clave maestra, copias).
-4. Crea el servicio `gordurasfm` (runit) con `termux-wake-lock`, para que Android no duerma la CPU.
+2. Descarga `ownfm-aarch64-linux-musl`, comprueba su SHA-256 y lo deja en `$PREFIX/bin/ownfm`.
+3. Crea `~/.ownfm/config.toml` y la carpeta de datos `~/.ownfm/data` (BD, clave maestra, copias).
+4. Crea el servicio `ownfm` (runit) con `termux-wake-lock`, para que Android no duerma la CPU.
 
 La primera vez que instalas `termux-services` hay que **cerrar Termux del todo y volver a abrirlo**; después:
 
 ```sh
-sv-enable gordurasfm      # arrancar y que arranque con Termux
-sv status gordurasfm
-tail -f $PREFIX/var/log/sv/gordurasfm/current
+sv-enable ownfm      # arrancar y que arranque con Termux
+sv status ownfm
+tail -f $PREFIX/var/log/sv/ownfm/current
 ```
 
 ## Que no lo mate Android
@@ -63,17 +63,17 @@ ListenBrainz.Enabled = true
 ListenBrainz.BaseURL = "http://127.0.0.1:8090/1/"
 ```
 
-Desde otros dispositivos de la red se entra a la web con `http://IP-DEL-MÓVIL:8090` (cambia `public_url` en `~/.gordurasfm/config.toml` a esa dirección y reinicia con `sv restart gordurasfm`).
+Desde otros dispositivos de la red se entra a la web con `http://IP-DEL-MÓVIL:8090` (cambia `public_url` en `~/.ownfm/config.toml` a esa dirección y reinicia con `sv restart ownfm`).
 
 ## DNS
 
-Android no tiene `/etc/resolv.conf`. GordurasFM busca los servidores DNS en este orden: variable `GFM_DNS` (p. ej. `GFM_DNS=192.168.1.1`), `/etc/resolv.conf`, `$PREFIX/etc/resolv.conf` (el de Termux) y, si no hay ninguno, Cloudflare (`1.1.1.1`). `localhost` se resuelve siempre sin DNS.
+Android no tiene `/etc/resolv.conf`. OwnFM busca los servidores DNS en este orden: variable `OWNFM_DNS` (p. ej. `OWNFM_DNS=192.168.1.1`), `/etc/resolv.conf`, `$PREFIX/etc/resolv.conf` (el de Termux) y, si no hay ninguno, Cloudflare (`1.1.1.1`). `localhost` se resuelve siempre sin DNS.
 
 ## Actualizar, copias y desinstalar
 
 - Actualizar: vuelve a lanzar el instalador (hace una copia de la BD antes de cambiar el binario).
-- Copia al momento: `gordurasfm backup --config ~/.gordurasfm/config.toml`. Las automáticas (diaria y semanal) van a `~/.gordurasfm/data/backups`. Para sacarlas del móvil: `termux-setup-storage` y copia esa carpeta, **con `master.key`**, a `~/storage/shared/`.
-- Desinstalar: `sv-disable gordurasfm && rm -r $PREFIX/var/service/gordurasfm $PREFIX/bin/gordurasfm` (y `~/.gordurasfm` si quieres borrar los datos).
+- Copia al momento: `ownfm backup --config ~/.ownfm/config.toml`. Las automáticas (diaria y semanal) van a `~/.ownfm/data/backups`. Para sacarlas del móvil: `termux-setup-storage` y copia esa carpeta, **con `master.key`**, a `~/storage/shared/`.
+- Desinstalar: `sv-disable ownfm && rm -r $PREFIX/var/service/ownfm $PREFIX/bin/ownfm` (y `~/.ownfm` si quieres borrar los datos).
 
 ## Alternativa: proot-distro
 

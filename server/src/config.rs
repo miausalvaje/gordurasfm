@@ -1,4 +1,4 @@
-//! Configuración: `config.toml` + variables de entorno `GFM_*`.
+//! Configuración: `config.toml` + variables de entorno `OWNFM_*`.
 
 use std::{net::SocketAddr, path::PathBuf};
 
@@ -14,7 +14,7 @@ pub struct Config {
     pub data_dir: PathBuf,
     /// Archivo con la clave maestra (32 bytes en hex). Se crea si no existe.
     pub master_key_file: Option<PathBuf>,
-    /// URL pública con la que se llega a GordurasFM (para cookies y callbacks).
+    /// URL pública con la que se llega a OwnFM (para cookies y callbacks).
     pub public_url: String,
     /// `auto` (según `public_url`), `true` o `false`.
     pub cookie_secure: String,
@@ -147,6 +147,14 @@ impl Default for ForwardConfig {
     }
 }
 
+/// Valor de la variable con el prefijo antiguo (`GFM_…` en vez de `OWNFM_…`), avisando en el registro.
+pub fn legacy_env(k: &str, get: &impl Fn(&str) -> Option<String>) -> Option<String> {
+    let old = format!("GFM_{}", k.strip_prefix("OWNFM_")?);
+    let v = get(&old)?;
+    tracing::warn!(variable = %old, nueva = k, "variable con el nombre antiguo; renómbrala");
+    Some(v)
+}
+
 impl Config {
     pub fn load(path: Option<&str>) -> Result<Self> {
         let mut cfg = match path {
@@ -161,41 +169,44 @@ impl Config {
         Ok(cfg)
     }
 
+    /// Aplica las variables `OWNFM_*`. Por compatibilidad con GordurasFM (nombre anterior del proyecto),
+    /// si una no está se mira la misma con el prefijo `GFM_`.
     pub fn apply_env(&mut self, get: impl Fn(&str) -> Option<String>) -> Result<()> {
-        if let Some(v) = get("GFM_LISTEN") {
-            self.listen = v.parse().context("GFM_LISTEN")?;
+        let get = |k: &str| get(k).or_else(|| legacy_env(k, &get));
+        if let Some(v) = get("OWNFM_LISTEN") {
+            self.listen = v.parse().context("OWNFM_LISTEN")?;
         }
-        if let Some(v) = get("GFM_DATA_DIR") {
+        if let Some(v) = get("OWNFM_DATA_DIR") {
             self.data_dir = v.into();
         }
-        if let Some(v) = get("GFM_MASTER_KEY_FILE") {
+        if let Some(v) = get("OWNFM_MASTER_KEY_FILE") {
             self.master_key_file = Some(v.into());
         }
-        if let Some(v) = get("GFM_PUBLIC_URL") {
+        if let Some(v) = get("OWNFM_PUBLIC_URL") {
             self.public_url = v;
         }
-        if let Some(v) = get("GFM_COOKIE_SECURE") {
+        if let Some(v) = get("OWNFM_COOKIE_SECURE") {
             self.cookie_secure = v;
         }
-        if let Some(v) = get("GFM_DEFAULT_TIMEZONE") {
+        if let Some(v) = get("OWNFM_DEFAULT_TIMEZONE") {
             self.default_timezone = v;
         }
-        if let Some(v) = get("GFM_REGISTRATION") {
+        if let Some(v) = get("OWNFM_REGISTRATION") {
             self.registration = v;
         }
-        if let Some(v) = get("GFM_NAVIDROME_URL") {
+        if let Some(v) = get("OWNFM_NAVIDROME_URL") {
             self.navidrome.url = v;
         }
-        if let Some(v) = get("GFM_LISTENBRAINZ_API_URL") {
+        if let Some(v) = get("OWNFM_LISTENBRAINZ_API_URL") {
             self.listenbrainz.api_url = v;
         }
-        if let Some(v) = get("GFM_LASTFM_API_URL") {
+        if let Some(v) = get("OWNFM_LASTFM_API_URL") {
             self.lastfm.api_url = v;
         }
-        if let Some(v) = get("GFM_LASTFM_API_KEY") {
+        if let Some(v) = get("OWNFM_LASTFM_API_KEY") {
             self.lastfm.api_key = Some(v);
         }
-        if let Some(v) = get("GFM_LASTFM_API_SECRET") {
+        if let Some(v) = get("OWNFM_LASTFM_API_SECRET") {
             self.lastfm.api_secret = Some(v);
         }
         Ok(())
@@ -216,7 +227,7 @@ impl Config {
     }
 
     pub fn db_path(&self) -> PathBuf {
-        self.data_dir.join("gordurasfm.db")
+        self.data_dir.join("ownfm.db")
     }
 
     pub fn images_dir(&self) -> PathBuf {
@@ -264,8 +275,8 @@ mod tests {
     fn variables_de_entorno() {
         let mut c = Config::default();
         c.apply_env(|k| match k {
-            "GFM_NAVIDROME_URL" => Some("http://nd:4533/".into()),
-            "GFM_REGISTRATION" => Some("approval".into()),
+            "OWNFM_NAVIDROME_URL" => Some("http://nd:4533/".into()),
+            "OWNFM_REGISTRATION" => Some("approval".into()),
             _ => None,
         })
         .unwrap();
@@ -274,5 +285,19 @@ mod tests {
         assert_eq!(c.registration, "approval");
         c.registration = "x".into();
         assert!(c.validate().is_err());
+    }
+
+    #[test]
+    fn variables_con_el_nombre_antiguo() {
+        let mut c = Config::default();
+        c.apply_env(|k| match k {
+            "GFM_NAVIDROME_URL" => Some("http://viejo:4533".into()),
+            "GFM_PUBLIC_URL" => Some("http://viejo".into()),
+            "OWNFM_PUBLIC_URL" => Some("http://nuevo".into()),
+            _ => None,
+        })
+        .unwrap();
+        assert_eq!(c.navidrome.url, "http://viejo:4533", "GFM_ sirve si no hay OWNFM_");
+        assert_eq!(c.public_url, "http://nuevo", "OWNFM_ manda sobre GFM_");
     }
 }

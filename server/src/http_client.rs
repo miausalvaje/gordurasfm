@@ -15,7 +15,7 @@ pub fn build() -> reqwest::Client {
     reqwest::Client::builder()
         .tls_backend_preconfigured(tls)
         .dns_resolver(Arc::new(crate::dns::Resolver::default()))
-        .user_agent(concat!("GordurasFM/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("OwnFM/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(30))
         .build()

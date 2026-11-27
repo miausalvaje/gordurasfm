@@ -61,7 +61,7 @@ class TW {
   static const tuMes = 'Tu mes más musical fue';
   static const loQueMas = 'Lo que más sonó ese mes';
 
-  static String resumenTitulo(int y) => 'Mi $y en GordurasFM';
+  static String resumenTitulo(int y) => 'Mi $y en OwnFM';
   static const topArtistas = 'Top artistas';
   static const topCanciones = 'Top canciones';
   static const minutos = 'Minutos';

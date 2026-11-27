@@ -6,7 +6,7 @@
 use std::{collections::HashMap, time::Duration};
 
 use chrono::{Datelike, TimeZone, Utc};
-use gordurasfm::{
+use ownfm::{
     AppState,
     config::Config,
     crypto::Crypto,
@@ -40,7 +40,7 @@ fn subsonic(req: &Request) -> ResponseTemplate {
         _ => "",
     };
     let ok = !pass.is_empty()
-        && q.get("t") == Some(&gordurasfm::crypto::subsonic_token(pass, q.get("s").map(String::as_str).unwrap_or("")));
+        && q.get("t") == Some(&ownfm::crypto::subsonic_token(pass, q.get("s").map(String::as_str).unwrap_or("")));
     let wrap = |extra: Value| {
         let mut r = json!({"status": "ok", "version": "1.16.1"});
         if let (Some(o), Some(e)) = (r.as_object_mut(), extra.as_object()) {
@@ -101,12 +101,12 @@ async fn spawn_with(secret: bool) -> TestApp {
 
     let pool = db::open_memory().await.unwrap();
     let st = state::new(cfg, pool, Crypto::from_key(&[5u8; 32]));
-    gordurasfm::spawn_background(&st);
-    let app = gordurasfm::app(st.clone());
+    ownfm::spawn_background(&st);
+    let app = ownfm::app(st.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-    TestApp { base: format!("http://{addr}"), http: gordurasfm::http_client::build(), st, nd, lfm }
+    TestApp { base: format!("http://{addr}"), http: ownfm::http_client::build(), st, nd, lfm }
 }
 
 struct S {
@@ -151,7 +151,7 @@ impl TestApp {
     }
 
     async fn upload(&self, s: &S, name: &str, content: &str) -> (u16, Value) {
-        let b = "----gfmlimite";
+        let b = "----ownfmlimite";
         let body = format!(
             "--{b}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{name}\"\r\nContent-Type: text/plain\r\n\r\n{content}\r\n--{b}--\r\n"
         );
@@ -502,7 +502,7 @@ async fn conectar_lastfm_y_reenviar() {
     // Firma correcta
     let mut params: std::collections::BTreeMap<String, String> = form.clone().into_iter().collect();
     let sig = params.remove("api_sig").unwrap();
-    assert_eq!(sig, gordurasfm::lastfm::client::sign(&params, LFM_SECRET));
+    assert_eq!(sig, ownfm::lastfm::client::sign(&params, LFM_SECRET));
 }
 
 #[tokio::test]
@@ -526,7 +526,7 @@ async fn importar_fichero_y_exportar() {
         .send()
         .await
         .unwrap();
-    assert!(r.headers()["content-disposition"].to_str().unwrap().contains("gordurasfm-ana-"));
+    assert!(r.headers()["content-disposition"].to_str().unwrap().contains("ownfm-ana-"));
     let exported = r.text().await.unwrap();
     assert!(exported.starts_with("played_at,artist,album,track,duration_ms,source\n"));
     assert_eq!(exported.lines().count(), 4);
@@ -559,7 +559,7 @@ async fn enriquecedor_y_portadas_en_cache() {
     app.add(ana.id, "Rosalía", "Saoko", "Motomami", Utc::now().timestamp() - 100, None).await;
     app.add(bea.id, "Otro", "Tema", "Disco", Utc::now().timestamp() - 100, None).await;
 
-    let n = gordurasfm::enrich::pass(&app.st).await.unwrap();
+    let n = ownfm::enrich::pass(&app.st).await.unwrap();
     assert!(n >= 3);
     let (_, s) = app.get(&ana, "/api/v1/stats?period=this_week").await;
     let al = &s["top_albums"][0];

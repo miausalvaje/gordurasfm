@@ -4,7 +4,7 @@
 //! - `POST /1/submit-listens` (`single`, `import`, `playing_now`)
 //! - `GET  /1/<resto>` → paso transparente a la API real (Navidrome pide ahí metadatos de artistas)
 //!
-//! Tokens: primero los de GordurasFM; si no, el token real de ListenBrainz que un usuario haya
+//! Tokens: primero los de OwnFM; si no, el token real de ListenBrainz que un usuario haya
 //! conectado (por HMAC); si no es de nadie, se pasa tal cual a ListenBrainz (configurable).
 
 use axum::{
@@ -56,7 +56,7 @@ pub struct TokenOwner {
     pub username: String,
 }
 
-/// Busca de quién es un token: de GordurasFM o un token de ListenBrainz conectado.
+/// Busca de quién es un token: de OwnFM o un token de ListenBrainz conectado.
 pub async fn resolve_token(st: &AppState, token: &str) -> sqlx::Result<Option<TokenOwner>> {
     let h = crypto::token_hash(token);
     let own: Option<(i64, String)> = sqlx::query_as(

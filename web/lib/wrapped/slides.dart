@@ -47,7 +47,7 @@ class Footer extends StatelessWidget {
       ),
       const SizedBox(width: 6),
       Text(
-        'GordurasFM · Wrapped $year',
+        'OwnFM · Wrapped $year',
         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white60, letterSpacing: 0.4),
       ),
     ],

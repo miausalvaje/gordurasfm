@@ -1,4 +1,6 @@
-# GordurasFM
+# OwnFM
+
+> Antes se llamaba **GordurasFM**. Las instalaciones antiguas se pasan solas a OwnFM al actualizar (ver [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md#7-si-vienes-de-gordurasfm)).
 
 Estadísticas de escucha autoalojadas para los usuarios de un [Navidrome](https://www.navidrome.org/): recibe las escuchas por un endpoint compatible con ListenBrainz, las reenvía a ListenBrainz (y a Last.fm), importa el historial de Last.fm y ofrece rankings y un Wrapped anual.
 Backend en Rust (axum + SQLite WAL) y web en Flutter, servidos por **un único binario estático** (x86_64 y aarch64, sin dependencias).
@@ -7,13 +9,13 @@ Backend en Rust (axum + SQLite WAL) y web en Flutter, servidos por **un único b
 
 | Dónde | Cómo |
 |---|---|
-| Debian/Ubuntu con systemd (LXC de Proxmox, VPS, Raspberry Pi) | `curl -fsSL https://raw.githubusercontent.com/miausalvaje/gordurasfm/main/deploy/lxc/install.sh \| sudo bash -s -- --navidrome-url http://IP:4533` |
-| Docker / Compose | `ghcr.io/miausalvaje/gordurasfm` · [`deploy/docker/compose.yaml`](deploy/docker/compose.yaml) |
+| Debian/Ubuntu con systemd (LXC de Proxmox, VPS, Raspberry Pi) | `curl -fsSL https://raw.githubusercontent.com/miausalvaje/ownfm/main/deploy/lxc/install.sh \| sudo bash -s -- --navidrome-url http://IP:4533` |
+| Docker / Compose | `ghcr.io/miausalvaje/ownfm` · [`deploy/docker/compose.yaml`](deploy/docker/compose.yaml) |
 | Android (Termux) | [`docs/TERMUX.md`](docs/TERMUX.md) |
 
 Guía completa (Navidrome, proxy inverso, copias de seguridad, actualizar, consumo medido): [`docs/DESPLIEGUE.md`](docs/DESPLIEGUE.md).
 
-Después, en Navidrome: `ListenBrainz.Enabled = true` y `ListenBrainz.BaseURL = "http://<gordurasfm>:8090/1/"`. Cada usuario entra en la web con su cuenta de Navidrome, genera un token de escucha y lo pega en *Navidrome → Personal → ListenBrainz*.
+Después, en Navidrome: `ListenBrainz.Enabled = true` y `ListenBrainz.BaseURL = "http://<ownfm>:8090/1/"`. Cada usuario entra en la web con su cuenta de Navidrome, genera un token de escucha y lo pega en *Navidrome → Personal → ListenBrainz*.
 
 ## Estado
 
@@ -37,7 +39,7 @@ Después, en Navidrome: `ListenBrainz.Enabled = true` y `ListenBrainz.BaseURL = 
 cd server
 cargo test                      # unitarios + integración (Navidrome y ListenBrainz falsos)
 cargo clippy --all-targets -- -D warnings
-GFM_NAVIDROME_URL=http://navidrome:4533 GFM_DATA_DIR=./data cargo run
+OWNFM_NAVIDROME_URL=http://navidrome:4533 OWNFM_DATA_DIR=./data cargo run
 ../scripts/e2e-navidrome.sh     # de principio a fin con un Navidrome real
 ../scripts/e2e-carga.sh 100000  # carga: importa 100 000 escuchas y mide tiempos y memoria
 LASTFM_API_KEY=… ../scripts/e2e-lastfm-real.sh <usuario>   # importación real desde Last.fm
@@ -48,7 +50,7 @@ cd ../web && flutter test && flutter analyze
 
 Publicar una versión: sube la versión en `server/Cargo.toml` y en `docs/openapi.json`, y crea la etiqueta `vX.Y.Z`. La CI (`.github/workflows/release.yml`) compila, prueba el instalador y la imagen, crea la versión en GitHub y sube la imagen a `ghcr.io`.
 
-Configuración: [`server/config.example.toml`](server/config.example.toml) o variables `GFM_*` (`gordurasfm --help`).
+Configuración: [`server/config.example.toml`](server/config.example.toml) o variables `OWNFM_*` (`ownfm --help`).
 
 ## Licencia
 

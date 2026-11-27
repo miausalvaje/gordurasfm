@@ -1,31 +1,31 @@
 #!/usr/bin/env bash
-# GFM_INSTALLER — instala o actualiza GordurasFM en Debian/Ubuntu con systemd (también en un LXC
+# OWNFM_INSTALLER — instala o actualiza OwnFM en Debian/Ubuntu con systemd (también en un LXC
 # sin privilegios de Proxmox). Volver a lanzarlo actualiza: guarda una copia de la BD antes de
 # cambiar el binario y, si el nuevo no arranca, vuelve al anterior.
 #
-#   curl -fsSL https://raw.githubusercontent.com/miausalvaje/gordurasfm/main/deploy/lxc/install.sh \
+#   curl -fsSL https://raw.githubusercontent.com/miausalvaje/ownfm/main/deploy/lxc/install.sh \
 #     | sudo bash -s -- --navidrome-url http://192.168.1.20:4533
 #
 # Opciones:
 #   --version vX.Y.Z      versión publicada en GitHub (por defecto, la última)
 #   --binary RUTA         usar un binario ya descargado o compilado
-#   --navidrome-url URL   Navidrome (solo al instalar; luego se cambia en /etc/gordurasfm/config.toml)
+#   --navidrome-url URL   Navidrome (solo al instalar; luego se cambia en /etc/ownfm/config.toml)
 #   --public-url URL      URL con la que se entra desde el navegador (por defecto http://<IP>:<puerto>)
 #   --port N              puerto (8090)
 #   --no-start            instalar sin arrancar
 #
-# Después, para actualizar: sudo gordurasfm-update [--version vX.Y.Z | --binary RUTA]
+# Después, para actualizar: sudo ownfm-update [--version vX.Y.Z | --binary RUTA]
 set -euo pipefail
 
-REPO=${GFM_REPO:-miausalvaje/gordurasfm}
-RELEASES=${GFM_RELEASES_URL:-https://github.com/$REPO/releases}
-BIN=/usr/local/bin/gordurasfm
-ETC=/etc/gordurasfm
+REPO=${OWNFM_REPO:-miausalvaje/ownfm}
+RELEASES=${OWNFM_RELEASES_URL:-https://github.com/$REPO/releases}
+BIN=/usr/local/bin/ownfm
+ETC=/etc/ownfm
 CONFIG=$ETC/config.toml
-DATA=/var/lib/gordurasfm
-UNIT=/etc/systemd/system/gordurasfm.service
-UPDATER=/usr/local/sbin/gordurasfm-update
-USER_NAME=gordurasfm
+DATA=/var/lib/ownfm
+UNIT=/etc/systemd/system/ownfm.service
+UPDATER=/usr/local/sbin/ownfm-update
+USER_NAME=ownfm
 
 VERSION="" BINARY="" NAVIDROME_URL="" PUBLIC_URL="" PORT=8090 START=1
 while [ $# -gt 0 ]; do
@@ -65,7 +65,7 @@ fetch() { # fetch URL DESTINO
 # 1. Binario
 if [ -n "$BINARY" ]; then
   [ -f "$BINARY" ] || die "no existe $BINARY"
-  cp "$BINARY" "$TMP/gordurasfm"
+  cp "$BINARY" "$TMP/ownfm"
 else
   if [ -z "$VERSION" ]; then
     say "Buscando la última versión"
@@ -73,19 +73,44 @@ else
     VERSION=$(sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' "$TMP/latest.json" | head -1)
     [ -n "$VERSION" ] || die "no se ha podido saber la última versión"
   fi
-  ASSET="gordurasfm-$ARCH-linux-musl"
-  say "Descargando GordurasFM $VERSION ($ARCH)"
+  ASSET="ownfm-$ARCH-linux-musl"
+  say "Descargando OwnFM $VERSION ($ARCH)"
   fetch "$RELEASES/download/$VERSION/$ASSET" "$TMP/$ASSET"
   fetch "$RELEASES/download/$VERSION/SHA256SUMS" "$TMP/SHA256SUMS"
   (cd "$TMP" && grep " $ASSET\$" SHA256SUMS | sha256sum -c --quiet -) || die "la suma SHA-256 no coincide"
-  mv "$TMP/$ASSET" "$TMP/gordurasfm"
+  mv "$TMP/$ASSET" "$TMP/ownfm"
 fi
-chmod 755 "$TMP/gordurasfm"
-NEW_VERSION=$("$TMP/gordurasfm" version | awk '{print $NF}') || die "el binario no se ejecuta en esta máquina"
+chmod 755 "$TMP/ownfm"
+NEW_VERSION=$("$TMP/ownfm" version | awk '{print $NF}') || die "el binario no se ejecuta en esta máquina"
 
 UPDATE=0
 [ -x "$BIN" ] && UPDATE=1
-if [ "$UPDATE" = 1 ]; then say "Actualizando GordurasFM: $("$BIN" version 2>/dev/null | awk '{print $NF}') → $NEW_VERSION"; else say "Instalando GordurasFM $NEW_VERSION"; fi
+
+# 1 bis. Instalación anterior con el nombre GordurasFM: se pasa a OwnFM conservando datos, clave y
+# configuración. La copia de la BD la hace el binario antiguo antes de tocar nada.
+MIGRATED=0
+OLD_BIN=/usr/local/bin/gordurasfm
+if [ "$UPDATE" = 0 ] && [ -x "$OLD_BIN" ]; then
+  say "Instalación de GordurasFM encontrada: se pasa a OwnFM conservando los datos"
+  if [ -f /var/lib/gordurasfm/gordurasfm.db ]; then
+    runuser -u gordurasfm -- "$OLD_BIN" backup --config /etc/gordurasfm/config.toml \
+      || die "no se ha podido copiar la BD; no se cambia nada"
+  fi
+  systemctl disable --now gordurasfm >/dev/null 2>&1 || true
+  [ -d /etc/gordurasfm ] && [ ! -e "$ETC" ] && mv /etc/gordurasfm "$ETC"
+  [ -d /var/lib/gordurasfm ] && [ ! -e "$DATA" ] && mv /var/lib/gordurasfm "$DATA"
+  if id gordurasfm >/dev/null 2>&1 && ! id "$USER_NAME" >/dev/null 2>&1; then
+    usermod -l "$USER_NAME" -d "$DATA" gordurasfm
+    if getent group gordurasfm >/dev/null; then groupmod -n "$USER_NAME" gordurasfm; fi
+  fi
+  # Rutas de la configuración. La BD (gordurasfm.db) la renombra OwnFM al arrancar.
+  [ -f "$CONFIG" ] && sed -i 's#/etc/gordurasfm#/etc/ownfm#g; s#/var/lib/gordurasfm#/var/lib/ownfm#g; s#GordurasFM#OwnFM#g; s#gordurasfm#ownfm#g' "$CONFIG"
+  rm -f "$OLD_BIN" /etc/systemd/system/gordurasfm.service /usr/local/sbin/gordurasfm-update
+  rm -rf /etc/systemd/system/gordurasfm.service.d
+  systemctl daemon-reload
+  MIGRATED=1
+fi
+if [ "$UPDATE" = 1 ]; then say "Actualizando OwnFM: $("$BIN" version 2>/dev/null | awk '{print $NF}') → $NEW_VERSION"; else say "Instalando OwnFM $NEW_VERSION"; fi
 
 # 2. Usuario, carpetas, clave y configuración
 if ! id "$USER_NAME" >/dev/null 2>&1; then
@@ -107,7 +132,7 @@ if [ ! -f "$CONFIG" ]; then
   [ -n "$NAVIDROME_URL" ] || NAVIDROME_URL="http://localhost:4533"
   say "Creando $CONFIG"
   cat > "$CONFIG" <<EOF
-# Configuración de GordurasFM. Todas las opciones: https://github.com/$REPO/blob/main/server/config.example.toml
+# Configuración de OwnFM. Todas las opciones: https://github.com/$REPO/blob/main/server/config.example.toml
 listen = "0.0.0.0:$PORT"
 data_dir = "$DATA"
 master_key_file = "$ETC/master.key"
@@ -127,29 +152,29 @@ EOF
 fi
 
 # 3. Copia de la BD antes de cambiar el binario
-if [ "$UPDATE" = 1 ] && [ -f "$DATA/gordurasfm.db" ]; then
+if [ "$UPDATE" = 1 ] && [ -f "$DATA/ownfm.db" ]; then
   say "Copia de la BD"
   runuser -u "$USER_NAME" -- "$BIN" backup --config "$CONFIG" || die "no se ha podido copiar la BD; no se actualiza"
 fi
 
 # 4. Binario y servicio
 [ "$UPDATE" = 1 ] && cp -p "$BIN" "$BIN.anterior"
-install -m 755 "$TMP/gordurasfm" "$BIN.nuevo"
+install -m 755 "$TMP/ownfm" "$BIN.nuevo"
 mv -f "$BIN.nuevo" "$BIN"
 
-# --- unidad systemd (igual que deploy/systemd/gordurasfm.service) ---
+# --- unidad systemd (igual que deploy/systemd/ownfm.service) ---
 cat > "$UNIT" <<'UNIT_EOF'
 [Unit]
-Description=GordurasFM (estadísticas de escucha para Navidrome)
-Documentation=https://github.com/miausalvaje/gordurasfm
+Description=OwnFM (estadísticas de escucha para Navidrome)
+Documentation=https://github.com/miausalvaje/ownfm
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=gordurasfm
-Group=gordurasfm
-ExecStart=/usr/local/bin/gordurasfm serve --config /etc/gordurasfm/config.toml
+User=ownfm
+Group=ownfm
+ExecStart=/usr/local/bin/ownfm serve --config /etc/ownfm/config.toml
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
@@ -160,7 +185,7 @@ LimitNOFILE=8192
 # Aislamiento (funciona en un LXC sin privilegios de Proxmox).
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/var/lib/gordurasfm
+ReadWritePaths=/var/lib/ownfm
 ProtectHome=yes
 PrivateTmp=yes
 ProtectControlGroups=yes
@@ -195,13 +220,13 @@ systemctl daemon-reload
 
 # 5. Actualizador: copia de este script (o, si llegó por curl, uno que lo descarga)
 SELF=$(readlink -f "${BASH_SOURCE[0]:-}" 2>/dev/null || true)
-if [ -f "$SELF" ] && grep -q GFM_INSTALLER "$SELF"; then
-  # Si ya se está ejecutando como gordurasfm-update, no hay nada que copiar.
+if [ -f "$SELF" ] && grep -q OWNFM_INSTALLER "$SELF"; then
+  # Si ya se está ejecutando como ownfm-update, no hay nada que copiar.
   [ "$SELF" = "$UPDATER" ] || install -m 755 "$SELF" "$UPDATER"
 else
   cat > "$UPDATER" <<EOF
 #!/bin/sh
-# Actualiza GordurasFM con el instalador más reciente. Opciones: --version vX.Y.Z | --binary RUTA
+# Actualiza OwnFM con el instalador más reciente. Opciones: --version vX.Y.Z | --binary RUTA
 set -e
 curl -fsSL https://raw.githubusercontent.com/$REPO/main/deploy/lxc/install.sh | bash -s -- "\$@"
 EOF
@@ -209,13 +234,13 @@ EOF
 fi
 
 if [ "$START" = 0 ]; then
-  systemctl enable gordurasfm >/dev/null 2>&1
-  say "Instalado sin arrancar: systemctl start gordurasfm"
+  systemctl enable ownfm >/dev/null 2>&1
+  say "Instalado sin arrancar: systemctl start ownfm"
   exit 0
 fi
 
-systemctl enable gordurasfm >/dev/null 2>&1
-systemctl restart gordurasfm
+systemctl enable ownfm >/dev/null 2>&1
+systemctl restart ownfm
 
 # 6. Comprobación (si una actualización no arranca, vuelve al binario anterior)
 ok=0
@@ -228,30 +253,30 @@ health() {
 }
 health && ok=1
 if [ "$ok" != 1 ]; then
-  journalctl -u gordurasfm -n 20 --no-pager >&2 || true
+  journalctl -u ownfm -n 20 --no-pager >&2 || true
   if [ "$UPDATE" = 1 ] && [ -f "$BIN.anterior" ]; then
     mv -f "$BIN.anterior" "$BIN"
-    systemctl restart gordurasfm
+    systemctl restart ownfm
     if health; then
       die "la versión nueva no arranca: se ha vuelto a la anterior, que funciona. Copia de la BD en $DATA/backups"
     fi
     die "la versión nueva no arranca y la anterior tampoco (¿la nueva migró la BD?): restaura la última copia de $DATA/backups (docs/DESPLIEGUE.md, sección 5)"
   fi
-  die "GordurasFM no responde; mira: journalctl -u gordurasfm"
+  die "OwnFM no responde; mira: journalctl -u ownfm"
 fi
 rm -f "$BIN.anterior"
 
 PORT_NOW=$(sed -n 's/^listen *= *"[^"]*:\([0-9]*\)".*/\1/p' "$CONFIG" | head -1)
 URL=$(sed -n 's/^public_url *= *"\([^"]*\)".*/\1/p' "$CONFIG" | head -1)
-say "GordurasFM $NEW_VERSION funcionando en ${URL:-http://localhost:${PORT_NOW:-8090}}"
-if [ "$UPDATE" = 0 ]; then
+say "OwnFM $NEW_VERSION funcionando en ${URL:-http://localhost:${PORT_NOW:-8090}}"
+if [ "$UPDATE" = 0 ] && [ "$MIGRATED" = 0 ]; then
   cat <<EOF
 
 Siguientes pasos:
-  1. Revisa $CONFIG (sobre todo [navidrome] url) y: systemctl restart gordurasfm
+  1. Revisa $CONFIG (sobre todo [navidrome] url) y: systemctl restart ownfm
   2. En Navidrome: ListenBrainz.Enabled = true y ListenBrainz.BaseURL = "${URL:-http://<esta-IP>:$PORT}/1/"
   3. Cada usuario entra en la web con su cuenta de Navidrome, crea un token de escucha
      y lo pega en Navidrome → Personal → ListenBrainz.
-Actualizar: sudo gordurasfm-update · Registros: journalctl -u gordurasfm -f
+Actualizar: sudo ownfm-update · Registros: journalctl -u ownfm -f
 EOF
 fi

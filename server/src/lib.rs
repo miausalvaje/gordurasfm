@@ -1,4 +1,4 @@
-//! GordurasFM: estadísticas de escucha autoalojadas para Navidrome.
+//! OwnFM: estadísticas de escucha autoalojadas para Navidrome.
 
 pub mod admin;
 pub mod api;

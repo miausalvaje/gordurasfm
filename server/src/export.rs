@@ -70,7 +70,7 @@ pub async fn export(
         .header(header::CONTENT_TYPE, mime)
         .header(
             header::CONTENT_DISPOSITION,
-            format!("attachment; filename=\"gordurasfm-{}-{date}.{ext}\"", u.username.replace('"', "")),
+            format!("attachment; filename=\"ownfm-{}-{date}.{ext}\"", u.username.replace('"', "")),
         )
         .body(Body::from(body))
         .unwrap())

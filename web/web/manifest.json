@@ -1,6 +1,6 @@
 {
-  "name": "GordurasFM",
-  "short_name": "GordurasFM",
+  "name": "OwnFM",
+  "short_name": "OwnFM",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#0E0E12",

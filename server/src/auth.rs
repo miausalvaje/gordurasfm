@@ -17,7 +17,7 @@ use crate::{
     subsonic::{Creds, SubsonicError},
 };
 
-pub const SESSION_COOKIE: &str = "gfm_session";
+pub const SESSION_COOKIE: &str = "ownfm_session";
 pub const CSRF_HEADER: &str = "x-requested-with";
 const SESSION_DAYS: i64 = 30;
 

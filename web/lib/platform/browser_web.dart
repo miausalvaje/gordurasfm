@@ -54,7 +54,7 @@ Future<UploadResult?> pickAndUpload(String url, String accept) {
   Future<void> upload(web.File f) async {
     try {
       final fd = web.FormData()..append('file', f, f.name);
-      final headers = web.Headers()..append('X-Requested-With', 'GordurasFM');
+      final headers = web.Headers()..append('X-Requested-With', 'OwnFM');
       final r = await web.window
           .fetch(url.toJS, web.RequestInit(method: 'POST', body: fd, headers: headers, credentials: 'same-origin'))
           .toDart;

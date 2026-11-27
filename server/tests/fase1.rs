@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use gordurasfm::{config::Config, crypto::Crypto, db, state};
+use ownfm::{config::Config, crypto::Crypto, db, state};
 use serde_json::{Value, json};
 use wiremock::{
     Mock, MockServer, Request, ResponseTemplate,
@@ -28,7 +28,7 @@ fn subsonic_responder(req: &Request) -> ResponseTemplate {
         _ => "",
     };
     let ok = !pass.is_empty()
-        && q.get("t") == Some(&gordurasfm::crypto::subsonic_token(pass, q.get("s").map(String::as_str).unwrap_or("")));
+        && q.get("t") == Some(&ownfm::crypto::subsonic_token(pass, q.get("s").map(String::as_str).unwrap_or("")));
     let body = if !ok {
         json!({"subsonic-response": {"status": "failed", "version": "1.16.1", "error": {"code": 40, "message": "Wrong username or password"}}})
     } else if req.url.path().ends_with("/getUser") {
@@ -78,13 +78,13 @@ async fn spawn() -> TestApp {
 
     let pool = db::open_memory().await.unwrap();
     let st = state::new(cfg, pool, Crypto::from_key(&[9u8; 32]));
-    gordurasfm::spawn_background(&st);
-    let app = gordurasfm::app(st);
+    ownfm::spawn_background(&st);
+    let app = ownfm::app(st);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
 
-    TestApp { base: format!("http://{addr}"), http: gordurasfm::http_client::build(), lb, _nd: nd }
+    TestApp { base: format!("http://{addr}"), http: ownfm::http_client::build(), lb, _nd: nd }
 }
 
 struct Session {
@@ -96,7 +96,7 @@ impl TestApp {
         let r = self
             .http
             .post(format!("{}/api/v1/auth/login", self.base))
-            .header("X-Requested-With", "GordurasFM")
+            .header("X-Requested-With", "OwnFM")
             .json(&json!({"username": user, "password": pass}))
             .send()
             .await
@@ -118,7 +118,7 @@ impl TestApp {
             .http
             .request(m, format!("{}{p}", self.base))
             .header("Cookie", &s.cookie)
-            .header("X-Requested-With", "GordurasFM")
+            .header("X-Requested-With", "OwnFM")
             .json(&body)
             .send()
             .await
@@ -408,7 +408,7 @@ async fn tokens_desconocidos_y_metadatos_pasan_a_listenbrainz() {
         .mount(&app.lb)
         .await;
 
-    // Un usuario de Navidrome que no usa GordurasFM: su petición llega a ListenBrainz tal cual.
+    // Un usuario de Navidrome que no usa OwnFM: su petición llega a ListenBrainz tal cual.
     let r = app.submit("token-de-otro", "single", "X", Some(now() - 10)).await;
     assert_eq!(r.status(), 401);
     let subs = app.lb_submits().await;

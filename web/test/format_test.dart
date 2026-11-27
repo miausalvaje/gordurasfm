@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gordurasfm/format.dart';
+import 'package:ownfm/format.dart';
 
 void main() {
   test('números en español', () {

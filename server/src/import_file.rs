@@ -1,4 +1,4 @@
-//! Lectura de ficheros de historial: CSV (exportaciones de Last.fm, propio de GordurasFM)
+//! Lectura de ficheros de historial: CSV (exportaciones de Last.fm, propio de OwnFM)
 //! y JSON (ListenBrainz y propio, en lista o una escucha por línea).
 
 use chrono::{NaiveDateTime, TimeZone, Utc};
@@ -187,7 +187,7 @@ fn json_item(v: &Value) -> Option<Listen> {
         let ts = ts.as_i64().or_else(|| ts.as_str().and_then(parse_date))?;
         listen(a, t, md.get("release_name").and_then(Value::as_str), ts, dur, Some(v.clone()), Source::ImportFile)
     } else {
-        // GordurasFM (exportación propia) u otros con campos sencillos: los campos ya son el original.
+        // OwnFM (exportación propia) u otros con campos sencillos: los campos ya son el original.
         let s = |k: &[&str]| k.iter().find_map(|k| v.get(*k).and_then(Value::as_str));
         let ts = ["played_at", "uts", "timestamp", "date"].iter().find_map(|k| match v.get(*k) {
             Some(Value::Number(n)) => n.as_i64(),

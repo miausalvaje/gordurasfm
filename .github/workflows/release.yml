@@ -15,6 +15,14 @@ on:
       - 'scripts/build-release.sh'
       - 'scripts/check-deploy.sh'
       - '.github/workflows/release.yml'
+  pull_request:
+    paths:
+      - 'deploy/**'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'scripts/build-release.sh'
+      - 'scripts/check-deploy.sh'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
 
 permissions:
@@ -22,7 +30,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/gordurasfm
+  IMAGE: ghcr.io/${{ github.repository_owner }}/ownfm
 
 jobs:
   binarios:
@@ -51,28 +59,47 @@ jobs:
       - run: scripts/build-release.sh
       - name: El binario arranca y responde
         run: |
-          file dist/gordurasfm-*
-          B=dist/gordurasfm-x86_64-linux-musl
+          file dist/ownfm-*
+          B=dist/ownfm-x86_64-linux-musl
           $B version
-          GFM_DATA_DIR=$RUNNER_TEMP/gfm GFM_LISTEN=127.0.0.1:18090 $B serve & sleep 3
-          GFM_LISTEN=127.0.0.1:18090 $B healthcheck
+          OWNFM_DATA_DIR=$RUNNER_TEMP/ownfm OWNFM_LISTEN=127.0.0.1:18090 $B serve & sleep 3
+          OWNFM_LISTEN=127.0.0.1:18090 $B healthcheck
           curl -fsS http://127.0.0.1:18090/ | grep -qi flutter
           curl -fsS http://127.0.0.1:18090/api/v1/openapi.json | jq -e '.openapi == "3.1.0"'
-          ls $RUNNER_TEMP/gfm
+          ls $RUNNER_TEMP/ownfm
       - name: Instalador en un sistema con systemd (este mismo runner)
         run: |
-          sudo deploy/lxc/install.sh --binary dist/gordurasfm-x86_64-linux-musl --navidrome-url http://127.0.0.1:4533
-          systemctl status gordurasfm --no-pager
-          sudo test -f /etc/gordurasfm/master.key
-          sudo stat -c '%U %a %n' /etc/gordurasfm/master.key /etc/gordurasfm/config.toml /var/lib/gordurasfm
+          # Instalación antigua (GordurasFM v0.1.3) → OwnFM: conserva la clave y la BD, y quita lo antiguo.
+          curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/v0.1.3/deploy/lxc/install.sh \
+            | sudo bash -s -- --version v0.1.3 --navidrome-url http://127.0.0.1:4533
+          curl -fsS http://127.0.0.1:8090/api/v1/salud
+          KEY=$(sudo sha256sum /etc/gordurasfm/master.key | cut -d' ' -f1)
+          sudo deploy/lxc/install.sh --binary dist/ownfm-x86_64-linux-musl
+          test "$(SUDO_ASKPASS="$__hermes_sudo_dir/a" sudo "${__hermes_sudo_o[@]}" sha256sum /etc/ownfm/master.key | cut -d' ' -f1)" = "$KEY"
+          sudo test -f /var/lib/ownfm/ownfm.db
+          sudo test ! -e /var/lib/ownfm/gordurasfm.db
+          test ! -e /etc/gordurasfm
+          test ! -e /var/lib/gordurasfm
+          test ! -e /usr/local/bin/gordurasfm
+          test ! -e /etc/systemd/system/gordurasfm.service
+          id ownfm
+          if id gordurasfm 2>/dev/null; then echo "el usuario gordurasfm debía renombrarse"; exit 1; fi
+          sudo ls /var/lib/ownfm/backups | grep -q '^manual-'
+          sudo grep -q '/var/lib/ownfm' /etc/ownfm/config.toml
+          curl -fsS http://127.0.0.1:8090/api/v1/salud
+          # Volver a lanzarlo ya es una actualización normal.
+          sudo deploy/lxc/install.sh --binary dist/ownfm-x86_64-linux-musl --navidrome-url http://127.0.0.1:4533
+          systemctl status ownfm --no-pager
+          sudo test -f /etc/ownfm/master.key
+          sudo stat -c '%U %a %n' /etc/ownfm/master.key /etc/ownfm/config.toml /var/lib/ownfm
           # Actualizar con el mismo binario: copia de la BD y vuelta a arrancar.
-          sudo gordurasfm-update --binary dist/gordurasfm-x86_64-linux-musl
-          sudo ls /var/lib/gordurasfm/backups | grep -q '^manual-'
+          sudo ownfm-update --binary dist/ownfm-x86_64-linux-musl
+          sudo ls /var/lib/ownfm/backups | grep -q '^manual-'
           curl -fsS http://127.0.0.1:8090/api/v1/salud
           # Una versión que no arranca: debe volver sola a la anterior.
-          printf '#!/bin/sh\n[ "$1" = version ] && echo "gordurasfm 9.9.9" && exit 0\nexit 1\n' > roto && chmod +x roto
-          if sudo gordurasfm-update --binary ./roto; then echo "la actualización rota debía fallar"; exit 1; fi
-          ! /usr/local/bin/gordurasfm version | grep -q 9.9.9
+          printf '#!/bin/sh\n[ "$1" = version ] && echo "ownfm 9.9.9" && exit 0\nexit 1\n' > roto && chmod +x roto
+          if sudo ownfm-update --binary ./roto; then echo "la actualización rota debía fallar"; exit 1; fi
+          if /usr/local/bin/ownfm version | grep -q 9.9.9; then echo "debía volver a la versión anterior"; exit 1; fi
           curl -fsS http://127.0.0.1:8090/api/v1/salud
       - uses: actions/upload-artifact@v4
         with:
@@ -84,8 +111,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --generate-notes --title "GordurasFM $GITHUB_REF_NAME" \
-            dist/gordurasfm-x86_64-linux-musl dist/gordurasfm-aarch64-linux-musl dist/SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" --generate-notes --title "OwnFM $GITHUB_REF_NAME" \
+            dist/ownfm-x86_64-linux-musl dist/ownfm-aarch64-linux-musl dist/SHA256SUMS
 
   docker:
     needs: binarios
@@ -96,7 +123,7 @@ jobs:
         with:
           name: dist
           path: dist/
-      - run: chmod +x dist/linux/*/gordurasfm
+      - run: chmod +x dist/linux/*/ownfm
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - name: Imagen amd64 y prueba
@@ -105,22 +132,22 @@ jobs:
           context: .
           platforms: linux/amd64
           load: true
-          tags: gordurasfm:prueba
+          tags: ownfm:prueba
       - name: Arranca, pasa el healthcheck y responde
         run: |
-          docker images gordurasfm:prueba --format '{{.Size}}'
-          docker run -d --name gfm -p 18090:8090 gordurasfm:prueba
+          docker images ownfm:prueba --format '{{.Size}}'
+          docker run -d --name ownfm -p 18090:8090 ownfm:prueba
           for i in $(seq 1 30); do
-            s=$(docker inspect -f '{{.State.Health.Status}}' gfm); [ "$s" = healthy ] && break; sleep 2
+            s=$(docker inspect -f '{{.State.Health.Status}}' ownfm); [ "$s" = healthy ] && break; sleep 2
           done
-          docker inspect -f '{{.State.Health.Status}}' gfm | grep -qx healthy
+          docker inspect -f '{{.State.Health.Status}}' ownfm | grep -qx healthy
           curl -fsS http://127.0.0.1:18090/api/v1/salud
-          docker exec gfm /gordurasfm backup
-          docker logs gfm 2>&1 | tail -5
+          docker exec ownfm /ownfm backup
+          docker logs ownfm 2>&1 | tail -5
       - name: Imagen arm64 (emulada) arranca
         run: |
-          docker buildx build --platform linux/arm64 --load -t gordurasfm:arm64 .
-          docker run --rm --platform linux/arm64 gordurasfm:arm64 version
+          docker buildx build --platform linux/arm64 --load -t ownfm:arm64 .
+          docker run --rm --platform linux/arm64 ownfm:arm64 version
       - uses: docker/login-action@v3
         if: startsWith(github.ref, 'refs/tags/v')
         with:
