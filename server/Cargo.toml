@@ -1,6 +1,6 @@
 [package]
 name = "ownfm"
-version = "0.2.0"
+version = "0.2.1"
 description = "Estadísticas de escucha autoalojadas para Navidrome"
 license = "AGPL-3.0-only"
 build = "build.rs"

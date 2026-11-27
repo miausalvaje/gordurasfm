@@ -1,9 +1,11 @@
 //! Inicio de sesión con las credenciales de Navidrome, sesiones propias y usuario actual.
 
+use std::net::SocketAddr;
+
 use axum::{
     Json,
-    extract::{FromRequestParts, State},
-    http::{HeaderMap, HeaderValue, Method, header, request::Parts},
+    extract::{ConnectInfo, FromRequestParts, State},
+    http::{Extensions, HeaderMap, HeaderValue, Method, header, request::Parts},
     response::{IntoResponse, Response},
 };
 use serde::{Deserialize, Serialize};
@@ -13,6 +15,7 @@ use crate::{
     crypto,
     db::now,
     error::{AppError, AppResult},
+    login_limit::{self, LoginLimiter},
     state::AppState,
     subsonic::{Creds, SubsonicError},
 };
@@ -136,13 +139,30 @@ pub struct LoginResp {
 }
 
 /// POST /api/v1/auth/login
-pub async fn login(State(st): State<AppState>, headers: HeaderMap, Json(req): Json<LoginReq>) -> AppResult<Response> {
+pub async fn login(
+    State(st): State<AppState>,
+    headers: HeaderMap,
+    ext: Extensions,
+    Json(req): Json<LoginReq>,
+) -> AppResult<Response> {
     if headers.get(CSRF_HEADER).is_none() {
         return Err(AppError::Forbidden("falta la cabecera X-Requested-With".into()));
     }
     let username = req.username.trim().to_string();
     if username.is_empty() || req.password.is_empty() {
         return Err(AppError::BadRequest("escribe el usuario y la contraseña".into()));
+    }
+    // Límite de intentos por IP y por usuario (cada intento es una consulta a Navidrome).
+    let peer = ext.get::<ConnectInfo<SocketAddr>>().map(|c| c.0.ip());
+    let ip = login_limit::client_ip(peer, &headers, &st.cfg.trusted_nets);
+    let limit_keys = LoginLimiter::keys(ip, &username);
+    if let Err(secs) = st.login_limiter.attempt(&limit_keys) {
+        tracing::warn!(usuario = %username, ip = ?ip, "demasiados intentos de inicio de sesión");
+        let min = secs.div_ceil(60);
+        return Err(AppError::TooManyRequests(
+            format!("demasiados intentos; vuelve a probar dentro de {min} min"),
+            secs,
+        ));
     }
     let salt = crypto::random_salt();
     let creds = Creds { u: username.clone(), t: crypto::subsonic_token(&req.password, &salt), s: salt };
@@ -151,11 +171,13 @@ pub async fn login(State(st): State<AppState>, headers: HeaderMap, Json(req): Js
     let info = match st.subsonic.login(&creds).await {
         Ok(i) => i,
         Err(SubsonicError::BadCredentials) => {
+            tracing::info!(usuario = %username, ip = ?ip, "contraseña incorrecta");
             tokio::time::sleep(std::time::Duration::from_millis(400)).await;
             return Err(AppError::Unauthorized);
         }
         Err(e) => return Err(AppError::BadGateway(e.to_string())),
     };
+    st.login_limiter.success(&limit_keys);
     // Navidrome no distingue mayúsculas en el login: usamos el nombre que devuelve.
     let username = info.username;
     let t = now();

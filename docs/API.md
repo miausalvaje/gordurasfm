@@ -7,7 +7,7 @@ Guía con ejemplos. La especificación OpenAPI 3.1 está en [`openapi.json`](ope
 - **Web**: `POST /api/v1/auth/login` deja una cookie `ownfm_session` (`HttpOnly`, `SameSite=Lax`, 30 días, se renueva con el uso).
   Las peticiones que cambian algo (`POST`, `PUT`, `PATCH`, `DELETE`) con cookie deben llevar la cabecera `X-Requested-With` (con cualquier valor): protección CSRF.
 - **Integraciones**: `Authorization: Bearer <token>` con un token de tipo `api` (se crea en `POST /api/v1/tokens`). No necesita `X-Requested-With`.
-- Errores: `{"error": "codigo", "message": "texto en español"}` con `400`, `401`, `403`, `404`, `502` o `500`.
+- Errores: `{"error": "codigo", "message": "texto en español"}` con `400`, `401`, `403`, `404`, `429`, `502` o `500`. El `429` lleva la cabecera `Retry-After` (segundos).
 
 ## Compatibilidad con ListenBrainz (`/1/`)
 
@@ -29,7 +29,7 @@ Reglas al guardar: misma canción del mismo usuario a ±60 s = duplicada; pistas
 |---|---|---|
 | `GET /api/v1/salud` | — | `{"status":"ok","version":"…","db":true}` |
 | `GET /api/v1/openapi.json` | — | especificación OpenAPI 3.1 |
-| `POST /api/v1/auth/login` | `{"username","password"}` (de Navidrome) | `{"user":{…}}` + cookie. `401` si Navidrome rechaza las credenciales; `403` si la cuenta espera aprobación |
+| `POST /api/v1/auth/login` | `{"username","password"}` (de Navidrome) | `{"user":{…}}` + cookie. `401` si Navidrome rechaza las credenciales; `403` si la cuenta espera aprobación; `429` tras 10 intentos en 15 min desde la misma IP o para el mismo usuario (un inicio de sesión correcto pone el contador a cero) |
 | `POST /api/v1/auth/logout` | — | `{"ok":true}` y borra la cookie |
 | `GET /api/v1/me` | — | `{id, username, display_name, is_admin, is_approved, timezone, is_public, created_at}` |
 | `PATCH /api/v1/me` | `{"display_name"?, "timezone"?, "is_public"?}` | el usuario actualizado |

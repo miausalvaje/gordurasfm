@@ -25,6 +25,11 @@ pub enum SubsonicError {
     Network(String),
 }
 
+/// Error de red sin la URL: lleva `u`, `t` y `s` en la consulta, y `t` + `s` sirven como contraseña.
+fn net_err(e: reqwest::Error) -> SubsonicError {
+    SubsonicError::Network(e.without_url().to_string())
+}
+
 #[derive(Clone)]
 pub struct Subsonic {
     http: reqwest::Client,
@@ -58,9 +63,10 @@ impl Subsonic {
             ("f", "json"),
         ];
         q.extend_from_slice(params);
-        let resp = self.http.get(&url).query(&q).send().await.map_err(|e| SubsonicError::Network(e.to_string()))?;
+        let resp = self.http.get(&url).query(&q).send().await.map_err(net_err)?;
         let status = resp.status();
-        let body: Value = resp.json().await.map_err(|e| SubsonicError::Network(format!("HTTP {status}: {e}")))?;
+        let body: Value =
+            resp.json().await.map_err(|e| SubsonicError::Network(format!("HTTP {status}: {}", e.without_url())))?;
         let r = body
             .get("subsonic-response")
             .cloned()
@@ -94,7 +100,7 @@ impl Subsonic {
             ("f", "json"),
         ];
         q.extend_from_slice(params);
-        let resp = self.http.get(&url).query(&q).send().await.map_err(|e| SubsonicError::Network(e.to_string()))?;
+        let resp = self.http.get(&url).query(&q).send().await.map_err(net_err)?;
         let status = resp.status();
         let ctype = resp
             .headers()
@@ -102,7 +108,7 @@ impl Subsonic {
             .and_then(|v| v.to_str().ok())
             .unwrap_or("application/octet-stream")
             .to_string();
-        let body = resp.bytes().await.map_err(|e| SubsonicError::Network(e.to_string()))?;
+        let body = resp.bytes().await.map_err(net_err)?;
         if ctype.contains("json") || ctype.contains("xml") || !status.is_success() {
             let v: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
             let code = v.pointer("/subsonic-response/error/code").and_then(Value::as_i64).unwrap_or(0);
@@ -141,7 +147,7 @@ impl Subsonic {
         if let Some(r) = range {
             req = req.header(reqwest::header::RANGE, r);
         }
-        let resp = req.send().await.map_err(|e| SubsonicError::Network(e.to_string()))?;
+        let resp = req.send().await.map_err(net_err)?;
         let ctype = resp.headers().get(reqwest::header::CONTENT_TYPE).and_then(|v| v.to_str().ok()).unwrap_or("");
         if !resp.status().is_success() || ctype.contains("json") || ctype.contains("xml") {
             return Err(SubsonicError::Api(format!("stream: HTTP {}", resp.status())));

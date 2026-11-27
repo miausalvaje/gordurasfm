@@ -131,9 +131,9 @@ impl LastFm {
         }
         params.insert("format".into(), "json".into());
         let req = if post { self.http.post(&self.api).form(&params) } else { self.http.get(&self.api).query(&params) };
-        let resp = req.send().await.map_err(|e| LfmError::Retry(format!("red: {e}")))?;
+        let resp = req.send().await.map_err(|e| LfmError::Retry(format!("red: {}", e.without_url())))?;
         let status = resp.status();
-        let text = resp.text().await.map_err(|e| LfmError::Retry(format!("red: {e}")))?;
+        let text = resp.text().await.map_err(|e| LfmError::Retry(format!("red: {}", e.without_url())))?;
         let v: Value = match serde_json::from_str(&text) {
             Ok(v) => v,
             Err(_) if status.is_server_error() => return Err(LfmError::Retry(format!("HTTP {status}"))),

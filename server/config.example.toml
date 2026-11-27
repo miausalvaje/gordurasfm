@@ -8,6 +8,9 @@ public_url = "http://localhost:8090"    # (OWNFM_PUBLIC_URL) URL con la que se e
 cookie_secure = "auto"                  # (OWNFM_COOKIE_SECURE) auto = solo si public_url es https
 default_timezone = "Europe/Madrid"      # (OWNFM_DEFAULT_TIMEZONE) zona de los usuarios nuevos
 registration = "open"                   # (OWNFM_REGISTRATION) open | approval
+# Proxies inversos de confianza (IP o red CIDR). Detrás de un proxy, ponlo para que el límite de intentos
+# de inicio de sesión use la IP real del cliente (X-Forwarded-For) y no la del proxy.
+trusted_proxies = []                    # (OWNFM_TRUSTED_PROXIES, separadas por comas) p. ej. ["192.168.1.248"]
 
 [navidrome]
 url = "http://localhost:4533"           # (OWNFM_NAVIDROME_URL)

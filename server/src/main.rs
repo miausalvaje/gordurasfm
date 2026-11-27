@@ -72,7 +72,10 @@ async fn main() -> Result<()> {
     let app = ownfm::app(st);
     let listener =
         tokio::net::TcpListener::bind(listen).await.with_context(|| format!("no se puede escuchar en {listen}"))?;
-    axum::serve(listener, app).with_graceful_shutdown(shutdown()).await?;
+    // Con la IP de cada conexión (para el límite de intentos de inicio de sesión).
+    axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>())
+        .with_graceful_shutdown(shutdown())
+        .await?;
     pool.close().await;
     tracing::info!("parado");
     Ok(())

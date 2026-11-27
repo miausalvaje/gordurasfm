@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "OwnFM",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "license": {
       "name": "AGPL-3.0-only",
       "identifier": "AGPL-3.0-only"
@@ -290,7 +290,7 @@
             "$ref": "#/components/responses/Error"
           }
         },
-        "description": "Deja la cookie `ownfm_session`. `401` si Navidrome rechaza las credenciales; `403` si la cuenta espera aprobación.",
+        "description": "Deja la cookie `ownfm_session`. `401` si Navidrome rechaza las credenciales; `403` si la cuenta espera aprobación; `429` (con `Retry-After`) tras 10 intentos en 15 min desde la misma IP o para el mismo usuario.",
         "requestBody": {
           "required": true,
           "content": {
