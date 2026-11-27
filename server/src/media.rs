@@ -118,8 +118,13 @@ pub async fn serve_ref(st: &AppState, user_id: i64, r: &str, size: u32) -> AppRe
     let fetched = fetch(st, user_id, r, size).await;
     let t = now();
     match fetched {
-        Some(data) => {
-            let mime = sniff_mime(&data).ok_or(AppError::NotFound)?;
+        // Fallo temporal (Navidrome caído, red, credenciales): no se recuerda como «sin portada».
+        Fetched::Retry => Err(AppError::BadGateway("imagen no disponible ahora".into())),
+        Fetched::Found(data) => {
+            let Some(mime) = sniff_mime(&data) else {
+                remember_missing(st, r, size, t).await?;
+                return Err(AppError::NotFound);
+            };
             let hash = hex::encode(Sha256::digest(&data));
             let dir = st.cfg.images_dir();
             tokio::fs::create_dir_all(&dir).await.map_err(anyhow::Error::from)?;
@@ -143,16 +148,29 @@ pub async fn serve_ref(st: &AppState, user_id: i64, r: &str, size: u32) -> AppRe
                 .await?;
             Ok(image_response(mime, data))
         }
-        None => {
-            sqlx::query("INSERT INTO image_refs (ref, size, hash, fetched_at) VALUES (?, ?, NULL, ?) ON CONFLICT(ref, size) DO UPDATE SET hash = NULL, fetched_at = excluded.fetched_at")
-                .bind(r)
-                .bind(size)
-                .bind(t)
-                .execute(&st.db)
-                .await?;
+        Fetched::Missing => {
+            remember_missing(st, r, size, t).await?;
             Err(AppError::NotFound)
         }
     }
+}
+
+async fn remember_missing(st: &AppState, r: &str, size: u32, t: i64) -> AppResult<()> {
+    sqlx::query("INSERT INTO image_refs (ref, size, hash, fetched_at) VALUES (?, ?, NULL, ?) ON CONFLICT(ref, size) DO UPDATE SET hash = NULL, fetched_at = excluded.fetched_at")
+        .bind(r)
+        .bind(size)
+        .bind(t)
+        .execute(&st.db)
+        .await?;
+    Ok(())
+}
+
+enum Fetched {
+    Found(Vec<u8>),
+    /// La imagen no existe: se recuerda un día para no insistir.
+    Missing,
+    /// Fallo pasajero: se reintentará en la próxima petición.
+    Retry,
 }
 
 /// Lee una imagen guardada (por hash). La usa también el Wrapped.
@@ -169,32 +187,40 @@ pub async fn from_disk(st: &AppState, hash: &str) -> AppResult<Option<Response>>
     }
 }
 
-async fn fetch(st: &AppState, user_id: i64, r: &str, size: u32) -> Option<Vec<u8>> {
+async fn fetch(st: &AppState, user_id: i64, r: &str, size: u32) -> Fetched {
+    use crate::subsonic::SubsonicError;
     if let Some(cover) = r.strip_prefix("nd:") {
-        let creds = navidrome_creds(st, user_id).await.ok()?;
+        let Ok(creds) = navidrome_creds(st, user_id).await else { return Fetched::Retry };
         let size = size.to_string();
         match st.subsonic.bytes(&creds, "getCoverArt", &[("id", cover), ("size", &size)]).await {
-            Ok((_, b)) if b.len() <= MAX_IMAGE => Some(b.to_vec()),
-            Ok(_) => None,
+            Ok((_, b)) if b.len() <= MAX_IMAGE => Fetched::Found(b.to_vec()),
+            Ok(_) => Fetched::Missing,
             Err(e) => {
                 tracing::debug!(error = %e, referencia = r, "portada no disponible en Navidrome");
-                None
+                match e {
+                    SubsonicError::Api(_) => Fetched::Missing,
+                    SubsonicError::BadCredentials | SubsonicError::Network(_) => Fetched::Retry,
+                }
             }
         }
     } else if let Some(url) = r.strip_prefix("url:") {
         if !crate::scrobble::allowed_cover_url(url) {
-            return None;
+            return Fetched::Missing;
         }
         // Last.fm sirve otros tamaños cambiando el segmento /300x300/.
         let url = if size >= 600 { url.replace("/300x300/", "/770x0/") } else { url.to_string() };
-        let resp = st.http.get(&url).send().await.ok()?;
-        if !resp.status().is_success() {
-            return None;
+        let Ok(resp) = st.http.get(&url).send().await else { return Fetched::Retry };
+        let status = resp.status();
+        if !status.is_success() {
+            return if matches!(status.as_u16(), 403 | 404 | 410) { Fetched::Missing } else { Fetched::Retry };
         }
-        let b = resp.bytes().await.ok()?;
-        (b.len() <= MAX_IMAGE).then(|| b.to_vec())
+        match resp.bytes().await {
+            Ok(b) if b.len() <= MAX_IMAGE => Fetched::Found(b.to_vec()),
+            Ok(_) => Fetched::Missing,
+            Err(_) => Fetched::Retry,
+        }
     } else {
-        None
+        Fetched::Missing
     }
 }
 
