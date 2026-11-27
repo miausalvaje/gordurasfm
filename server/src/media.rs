@@ -212,7 +212,9 @@ async fn fetch(st: &AppState, user_id: i64, r: &str, size: u32) -> Fetched {
         let Ok(resp) = st.http.get(&url).send().await else { return Fetched::Retry };
         let status = resp.status();
         if !status.is_success() {
-            return if matches!(status.as_u16(), 403 | 404 | 410) { Fetched::Missing } else { Fetched::Retry };
+            // Last.fm responde a veces 403/404 a imágenes que existen cuando se piden muchas seguidas:
+            // solo «410 Gone» se da por definitivo.
+            return if status.as_u16() == 410 { Fetched::Missing } else { Fetched::Retry };
         }
         match resp.bytes().await {
             Ok(b) if b.len() <= MAX_IMAGE => Fetched::Found(b.to_vec()),
