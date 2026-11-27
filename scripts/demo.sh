@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Entorno de demostración: Navidrome de pruebas con música inventada (con portadas) + GordurasFM
+# Entorno de demostración: Navidrome de pruebas con música inventada (con portadas) + OwnFM
 # con dos años de historial. Se queda en marcha para revisarlo en el navegador.
 #
-# Uso: scripts/demo.sh [arrancar|parar] [binario-gordurasfm]
+# Uso: scripts/demo.sh [arrancar|parar] [binario-ownfm]
 #   Web: http://<ip>:8090  ·  usuario «pablo», contraseña «demo1234» (cuenta de Navidrome de pruebas)
 set -euo pipefail
 
 ACCION=${1:-arrancar}
-GFM_BIN=${2:-$(cd "$(dirname "$0")/.." && pwd)/server/target/debug/gordurasfm}
+OWNFM_BIN=${2:-$(cd "$(dirname "$0")/.." && pwd)/server/target/debug/ownfm}
 ND_BIN=${ND_BIN:-$HOME/navidrome-pruebas/bin/navidrome}
 DEMO=${DEMO:-$HOME/demo}
 ND_PORT=14540
-GFM_PORT=${GFM_PORT:-8090}
+OWNFM_PORT=${OWNFM_PORT:-8090}
 
 parar() {
   for f in "$DEMO"/*.pid; do
@@ -23,7 +23,7 @@ parar() {
 
 if [ "$ACCION" = parar ]; then parar; echo "parado"; exit 0; fi
 parar
-mkdir -p "$DEMO/music" "$DEMO/nd" "$DEMO/gfm"
+mkdir -p "$DEMO/music" "$DEMO/nd" "$DEMO/ownfm"
 
 if [ ! -f "$DEMO/catalogo.json" ]; then
   echo "== música de prueba (con portadas)"
@@ -62,15 +62,15 @@ fi
 
 echo "== Navidrome de pruebas (127.0.0.1:$ND_PORT)"
 ND_MUSICFOLDER="$DEMO/music" ND_DATAFOLDER="$DEMO/nd" ND_PORT=$ND_PORT ND_ADDRESS=127.0.0.1 ND_LOGLEVEL=warn \
-  ND_LISTENBRAINZ_ENABLED=true ND_LISTENBRAINZ_BASEURL="http://127.0.0.1:$GFM_PORT/1/" \
+  ND_LISTENBRAINZ_ENABLED=true ND_LISTENBRAINZ_BASEURL="http://127.0.0.1:$OWNFM_PORT/1/" \
   nohup "$ND_BIN" >"$DEMO/nd.log" 2>&1 & echo $! >"$DEMO/nd.pid"
 
-echo "== GordurasFM (0.0.0.0:$GFM_PORT)"
-GFM_LISTEN=0.0.0.0:$GFM_PORT GFM_DATA_DIR="$DEMO/gfm" GFM_NAVIDROME_URL=http://127.0.0.1:$ND_PORT \
-  GFM_PUBLIC_URL="http://$(hostname -I | awk '{print $1}'):$GFM_PORT" RUST_LOG=info \
-  nohup "$GFM_BIN" >"$DEMO/gfm.log" 2>&1 & echo $! >"$DEMO/gfm.pid"
+echo "== OwnFM (0.0.0.0:$OWNFM_PORT)"
+OWNFM_LISTEN=0.0.0.0:$OWNFM_PORT OWNFM_DATA_DIR="$DEMO/ownfm" OWNFM_NAVIDROME_URL=http://127.0.0.1:$ND_PORT \
+  OWNFM_PUBLIC_URL="http://$(hostname -I | awk '{print $1}'):$OWNFM_PORT" RUST_LOG=info \
+  nohup "$OWNFM_BIN" >"$DEMO/ownfm.log" 2>&1 & echo $! >"$DEMO/ownfm.pid"
 
-for _ in $(seq 60); do curl -sf "http://127.0.0.1:$ND_PORT/ping" >/dev/null && curl -sf "http://127.0.0.1:$GFM_PORT/api/v1/salud" >/dev/null && break; sleep 0.5; done
+for _ in $(seq 60); do curl -sf "http://127.0.0.1:$ND_PORT/ping" >/dev/null && curl -sf "http://127.0.0.1:$OWNFM_PORT/api/v1/salud" >/dev/null && break; sleep 0.5; done
 
 if [ ! -f "$DEMO/listo" ]; then
   echo "== cuenta de Navidrome y escaneo"
@@ -114,14 +114,14 @@ with open(f"{demo}/historial.csv", "w", newline="") as f:
 print(len(rows), "escuchas")
 EOF
   CJ="$DEMO/cookies"
-  curl -sf -c "$CJ" -X POST "http://127.0.0.1:$GFM_PORT/api/v1/auth/login" -H 'X-Requested-With: demo' -H 'Content-Type: application/json' \
+  curl -sf -c "$CJ" -X POST "http://127.0.0.1:$OWNFM_PORT/api/v1/auth/login" -H 'X-Requested-With: demo' -H 'Content-Type: application/json' \
     -d '{"username":"pablo","password":"demo1234"}' >/dev/null
-  JOB=$(curl -sf -b "$CJ" -X POST "http://127.0.0.1:$GFM_PORT/api/v1/import/file" -H 'X-Requested-With: demo' -F "file=@$DEMO/historial.csv" | jq .job.id)
+  JOB=$(curl -sf -b "$CJ" -X POST "http://127.0.0.1:$OWNFM_PORT/api/v1/import/file" -H 'X-Requested-With: demo' -F "file=@$DEMO/historial.csv" | jq .job.id)
   for _ in $(seq 300); do
-    S=$(curl -sf -b "$CJ" "http://127.0.0.1:$GFM_PORT/api/v1/import/jobs/$JOB" | jq -r .status)
+    S=$(curl -sf -b "$CJ" "http://127.0.0.1:$OWNFM_PORT/api/v1/import/jobs/$JOB" | jq -r .status)
     [ "$S" = done ] || [ "$S" = failed ] && break; sleep 1
   done
   echo "   importación: $S"
   touch "$DEMO/listo"
 fi
-echo "Listo: http://$(hostname -I | awk '{print $1}'):$GFM_PORT  (pablo / demo1234)"
+echo "Listo: http://$(hostname -I | awk '{print $1}'):$OWNFM_PORT  (pablo / demo1234)"

@@ -1,4 +1,4 @@
 # Solo hacen falta los binarios ya compilados.
 *
-!dist/linux/amd64/gordurasfm
-!dist/linux/arm64/gordurasfm
+!dist/linux/amd64/ownfm
+!dist/linux/arm64/ownfm

@@ -304,7 +304,7 @@ fn lb_listen(r: &Row) -> Value {
         .and_then(|v| v.get("track_metadata").cloned());
     let md = original.unwrap_or_else(|| {
         let mut info =
-            json!({"submission_client": "GordurasFM", "submission_client_version": env!("CARGO_PKG_VERSION")});
+            json!({"submission_client": "OwnFM", "submission_client_version": env!("CARGO_PKG_VERSION")});
         if let Some(d) = r.duration_ms {
             info["duration_ms"] = json!(d);
         }

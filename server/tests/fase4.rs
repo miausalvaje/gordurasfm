@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 use chrono::{Datelike, TimeZone, Utc};
-use gordurasfm::{
+use ownfm::{
     AppState,
     config::Config,
     crypto::Crypto,
@@ -34,7 +34,7 @@ fn subsonic(req: &Request) -> ResponseTemplate {
         _ => "",
     };
     let ok = !pass.is_empty()
-        && q.get("t") == Some(&gordurasfm::crypto::subsonic_token(pass, q.get("s").map(String::as_str).unwrap_or("")));
+        && q.get("t") == Some(&ownfm::crypto::subsonic_token(pass, q.get("s").map(String::as_str).unwrap_or("")));
     let wrap = |extra: Value| {
         let mut r = json!({"status": "ok", "version": "1.16.1"});
         if let (Some(o), Some(e)) = (r.as_object_mut(), extra.as_object()) {
@@ -87,13 +87,13 @@ async fn spawn() -> TestApp {
     cfg.validate().unwrap();
     let pool = db::open_memory().await.unwrap();
     let st = state::new(cfg, pool, Crypto::from_key(&[7u8; 32]));
-    let app = gordurasfm::app(st.clone());
+    let app = ownfm::app(st.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     // Se deja vivo el servidor simulado de Navidrome durante todo el test.
     std::mem::forget(nd);
-    TestApp { base: format!("http://{addr}"), http: gordurasfm::http_client::build(), st }
+    TestApp { base: format!("http://{addr}"), http: ownfm::http_client::build(), st }
 }
 
 struct S {
@@ -186,7 +186,7 @@ async fn wrapped_foto_fija_versiones_y_pruebas() {
     let bea = app.login("bea", "clave").await;
     seed(&app, ana.id).await;
     app.add(ana.id, "Rosalía", "Saoko", "Motomami", Utc::now().timestamp() - 3600).await;
-    gordurasfm::enrich::pass(&app.st).await.unwrap();
+    ownfm::enrich::pass(&app.st).await.unwrap();
     let y = last_year();
 
     let (code, list) = app.get(&ana, "/api/v1/wrapped").await;
@@ -291,7 +291,7 @@ async fn audio_de_navidrome_con_range() {
     let ana = app.login("ana", "secreto").await;
     let bea = app.login("bea", "clave").await;
     app.add(ana.id, "Rosalía", "Saoko", "Motomami", Utc::now().timestamp() - 100).await;
-    gordurasfm::enrich::pass(&app.st).await.unwrap();
+    ownfm::enrich::pass(&app.st).await.unwrap();
     let url = format!("{}/api/v1/media/stream/s1", app.base);
 
     let r = app.http.get(&url).header("Cookie", &ana.cookie).send().await.unwrap();
@@ -325,8 +325,8 @@ async fn definitivo_automatico_del_año_anterior() {
     let ana = app.login("ana", "secreto").await;
     let _bea = app.login("bea", "clave").await;
     seed(&app, ana.id).await;
-    assert_eq!(gordurasfm::wrapped::generate_due(&app.st).await.unwrap(), 1, "solo ana tiene escuchas");
-    assert_eq!(gordurasfm::wrapped::generate_due(&app.st).await.unwrap(), 0, "no se repite");
+    assert_eq!(ownfm::wrapped::generate_due(&app.st).await.unwrap(), 1, "solo ana tiene escuchas");
+    assert_eq!(ownfm::wrapped::generate_due(&app.st).await.unwrap(), 0, "no se repite");
     let (_, list) = app.get(&ana, "/api/v1/wrapped").await;
     let w = &list["years"][0]["wrapped"];
     assert_eq!(

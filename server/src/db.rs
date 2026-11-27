@@ -2,7 +2,7 @@
 
 use std::{path::Path, str::FromStr, time::Duration};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use sqlx::ConnectOptions;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions, SqliteSynchronous};
 
@@ -31,7 +31,26 @@ pub async fn open(path: &Path) -> Result<Db> {
     Ok(pool)
 }
 
-/// BD existente, solo lectura y sin migrar (para `gordurasfm backup` con el servidor en marcha).
+/// Si la carpeta de datos tiene la BD con el nombre antiguo (`gordurasfm.db`, de cuando el proyecto
+/// se llamaba GordurasFM) y no la nueva, la renombra con sus archivos `-wal` y `-shm`.
+pub fn adopt_legacy_db(path: &Path) -> Result<()> {
+    let Some(dir) = path.parent() else { return Ok(()) };
+    let old = dir.join("gordurasfm.db");
+    if path.exists() || !old.exists() {
+        return Ok(());
+    }
+    for ext in ["", "-wal", "-shm"] {
+        let from = dir.join(format!("gordurasfm.db{ext}"));
+        if from.exists() {
+            let to = dir.join(format!("{}{ext}", path.file_name().unwrap().to_string_lossy()));
+            std::fs::rename(&from, &to).with_context(|| format!("renombrando {}", from.display()))?;
+        }
+    }
+    tracing::info!(antes = %old.display(), ahora = %path.display(), "BD renombrada (antes GordurasFM)");
+    Ok(())
+}
+
+/// BD existente, solo lectura y sin migrar (para `ownfm backup` con el servidor en marcha).
 pub async fn open_read_only(path: &Path) -> Result<Db> {
     anyhow::ensure!(path.exists(), "no existe la BD {}", path.display());
     let opts = SqliteConnectOptions::from_str(&format!("sqlite://{}", path.display()))?
@@ -106,9 +125,31 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn adopta_la_bd_con_el_nombre_antiguo() {
+        let tmp = tempfile::tempdir().unwrap();
+        let old = tmp.path().join("gordurasfm.db");
+        let db = open(&old).await.unwrap();
+        sqlx::query("INSERT INTO users (username, display_name, created_at) VALUES ('ana', 'Ana', 0)")
+            .execute(&db)
+            .await
+            .unwrap();
+        db.close().await;
+        let new = tmp.path().join("ownfm.db");
+        adopt_legacy_db(&new).unwrap();
+        assert!(new.exists() && !old.exists());
+        let db = open(&new).await.unwrap();
+        let (n,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users").fetch_one(&db).await.unwrap();
+        assert_eq!(n, 1);
+        // Si ya existe la nueva, no toca nada.
+        std::fs::write(&old, b"x").unwrap();
+        adopt_legacy_db(&new).unwrap();
+        assert!(old.exists());
+    }
+
+    #[tokio::test]
     async fn copia_antes_de_migrar() {
         let tmp = tempfile::tempdir().unwrap();
-        let path = tmp.path().join("gordurasfm.db");
+        let path = tmp.path().join("ownfm.db");
         let db = open(&path).await.unwrap();
         assert!(pending_migrations(&db).await.unwrap().is_empty());
         // Sin migraciones pendientes no se copia nada.

@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:gordurasfm/wrapped/model.dart';
-import 'package:gordurasfm/wrapped/palette.dart';
-import 'package:gordurasfm/wrapped/zip.dart';
+import 'package:ownfm/wrapped/model.dart';
+import 'package:ownfm/wrapped/palette.dart';
+import 'package:ownfm/wrapped/zip.dart';
 
 void main() {
   test('crc32 conocido', () {

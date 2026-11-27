@@ -1,34 +1,34 @@
 #!/usr/bin/env bash
 # Prueba de principio a fin con un Navidrome real (sin Docker):
-#   Navidrome (ListenBrainz.BaseURL → GordurasFM) → /1/submit-listens → BD de GordurasFM.
-# Uso: scripts/e2e-navidrome.sh [ruta-al-binario-navidrome] [ruta-al-binario-gordurasfm]
+#   Navidrome (ListenBrainz.BaseURL → OwnFM) → /1/submit-listens → BD de OwnFM.
+# Uso: scripts/e2e-navidrome.sh [ruta-al-binario-navidrome] [ruta-al-binario-ownfm]
 set -euo pipefail
 
 ND_BIN=${1:-$HOME/navidrome-pruebas/bin/navidrome}
-GFM_BIN=${2:-$(dirname "$0")/../server/target/debug/gordurasfm}
+OWNFM_BIN=${2:-$(dirname "$0")/../server/target/debug/ownfm}
 WORK=$(mktemp -d)
 ND_PORT=14533
-GFM_PORT=18090
+OWNFM_PORT=18090
 trap 'kill $(jobs -p) 2>/dev/null || true; rm -rf "$WORK"' EXIT
 
 echo "== música de prueba"
-mkdir -p "$WORK/music" "$WORK/nd" "$WORK/gfm"
+mkdir -p "$WORK/music" "$WORK/nd" "$WORK/ownfm"
 for i in 1 2 3; do
   ffmpeg -loglevel error -f lavfi -i "sine=frequency=$((300 + i * 100)):duration=200" -c:a libmp3lame -b:a 64k \
     -metadata title="Canción $i" -metadata artist="Grupo de Prueba" -metadata album="Disco de Prueba" \
     -metadata album_artist="Grupo de Prueba" -metadata track="$i" "$WORK/music/$i.mp3"
 done
 
-echo "== GordurasFM en :$GFM_PORT"
-GFM_LISTEN=127.0.0.1:$GFM_PORT GFM_DATA_DIR="$WORK/gfm" GFM_NAVIDROME_URL=http://127.0.0.1:$ND_PORT \
-  GFM_LISTENBRAINZ_API_URL=http://127.0.0.1:9 RUST_LOG=info "$GFM_BIN" >"$WORK/gfm.log" 2>&1 &
+echo "== OwnFM en :$OWNFM_PORT"
+OWNFM_LISTEN=127.0.0.1:$OWNFM_PORT OWNFM_DATA_DIR="$WORK/ownfm" OWNFM_NAVIDROME_URL=http://127.0.0.1:$ND_PORT \
+  OWNFM_LISTENBRAINZ_API_URL=http://127.0.0.1:9 RUST_LOG=info "$OWNFM_BIN" >"$WORK/ownfm.log" 2>&1 &
 
 echo "== Navidrome en :$ND_PORT"
 ND_MUSICFOLDER="$WORK/music" ND_DATAFOLDER="$WORK/nd" ND_PORT=$ND_PORT ND_ADDRESS=127.0.0.1 \
-  ND_LISTENBRAINZ_ENABLED=true ND_LISTENBRAINZ_BASEURL="http://127.0.0.1:$GFM_PORT/1/" \
+  ND_LISTENBRAINZ_ENABLED=true ND_LISTENBRAINZ_BASEURL="http://127.0.0.1:$OWNFM_PORT/1/" \
   ND_LOGLEVEL=info ND_SCANNER_SCHEDULE=0 "$ND_BIN" >"$WORK/nd.log" 2>&1 &
 
-for _ in $(seq 60); do curl -sf "http://127.0.0.1:$ND_PORT/ping" >/dev/null && curl -sf "http://127.0.0.1:$GFM_PORT/api/v1/salud" >/dev/null && break; sleep 0.5; done
+for _ in $(seq 60); do curl -sf "http://127.0.0.1:$ND_PORT/ping" >/dev/null && curl -sf "http://127.0.0.1:$OWNFM_PORT/api/v1/salud" >/dev/null && break; sleep 0.5; done
 
 echo "== admin de Navidrome y escaneo"
 curl -sf -X POST "http://127.0.0.1:$ND_PORT/auth/createAdmin" -H 'Content-Type: application/json' \
@@ -43,11 +43,11 @@ for _ in $(seq 60); do
 done
 echo "   canciones en Navidrome: $n"
 
-echo "== login en GordurasFM con la cuenta de Navidrome"
+echo "== login en OwnFM con la cuenta de Navidrome"
 CJ="$WORK/cookies"
-curl -sf -c "$CJ" -X POST "http://127.0.0.1:$GFM_PORT/api/v1/auth/login" -H 'X-Requested-With: e2e' \
+curl -sf -c "$CJ" -X POST "http://127.0.0.1:$OWNFM_PORT/api/v1/auth/login" -H 'X-Requested-With: e2e' \
   -H 'Content-Type: application/json' -d '{"username":"pablo","password":"prueba123"}' | jq -c .user
-TOKEN=$(curl -sf -b "$CJ" -X POST "http://127.0.0.1:$GFM_PORT/api/v1/tokens" -H 'X-Requested-With: e2e' \
+TOKEN=$(curl -sf -b "$CJ" -X POST "http://127.0.0.1:$OWNFM_PORT/api/v1/tokens" -H 'X-Requested-With: e2e' \
   -H 'Content-Type: application/json' -d '{"kind":"scrobble","label":"Navidrome"}' | jq -r .token)
 
 echo "== enlazar el token en el perfil de Navidrome (como en Ajustes → ListenBrainz)"
@@ -63,14 +63,14 @@ for id in $IDS; do
   T=$(( T + 210000 ))
 done
 
-echo "== esperar a que lleguen a GordurasFM"
+echo "== esperar a que lleguen a OwnFM"
 for _ in $(seq 40); do
-  total=$(curl -sf -b "$CJ" "http://127.0.0.1:$GFM_PORT/api/v1/scrobbles" | jq .total)
+  total=$(curl -sf -b "$CJ" "http://127.0.0.1:$OWNFM_PORT/api/v1/scrobbles" | jq .total)
   [ "$total" = "2" ] && break; sleep 0.5
 done
-curl -sf -b "$CJ" "http://127.0.0.1:$GFM_PORT/api/v1/scrobbles" | jq -c '.items[] | {track, artist, album, duration_ms, source}'
-echo "--- registro de GordurasFM"
-grep -E "escuchas|usuario nuevo|ERROR|WARN" "$WORK/gfm.log" | sed 's/\x1b\[[0-9;]*m//g' | tail -8
+curl -sf -b "$CJ" "http://127.0.0.1:$OWNFM_PORT/api/v1/scrobbles" | jq -c '.items[] | {track, artist, album, duration_ms, source}'
+echo "--- registro de OwnFM"
+grep -E "escuchas|usuario nuevo|ERROR|WARN" "$WORK/ownfm.log" | sed 's/\x1b\[[0-9;]*m//g' | tail -8
 echo "--- registro de Navidrome (ListenBrainz)"
 grep -i listenbrainz "$WORK/nd.log" | tail -5 || true
 

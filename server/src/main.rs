@@ -4,25 +4,25 @@ use anyhow::{Context, Result};
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-use gordurasfm::{config::Config, crypto::Crypto, db, state};
+use ownfm::{config::Config, crypto::Crypto, db, state};
 use tracing_subscriber::EnvFilter;
 
-const HELP: &str = "GordurasFM — estadísticas de escucha autoalojadas para Navidrome
+const HELP: &str = "OwnFM — estadísticas de escucha autoalojadas para Navidrome
 
 Uso:
-  gordurasfm [serve] [--config RUTA]   arranca el servidor (por defecto)
-  gordurasfm backup [--config RUTA]    copia la BD en <data_dir>/backups (sirve con el servidor en marcha)
-  gordurasfm healthcheck [--config RUTA]  sale con 0 si el servidor responde (para Docker)
-  gordurasfm version                   muestra la versión
+  ownfm [serve] [--config RUTA]   arranca el servidor (por defecto)
+  ownfm backup [--config RUTA]    copia la BD en <data_dir>/backups (sirve con el servidor en marcha)
+  ownfm healthcheck [--config RUTA]  sale con 0 si el servidor responde (para Docker)
+  ownfm version                   muestra la versión
 
-Variables de entorno: GFM_LISTEN, GFM_DATA_DIR, GFM_MASTER_KEY_FILE, GFM_PUBLIC_URL,
-GFM_NAVIDROME_URL, GFM_REGISTRATION, GFM_DEFAULT_TIMEZONE, GFM_COOKIE_SECURE,
-GFM_LISTENBRAINZ_API_URL, GFM_LASTFM_API_KEY, GFM_LASTFM_API_SECRET, GFM_DNS, GFM_CONFIG, RUST_LOG.";
+Variables de entorno: OWNFM_LISTEN, OWNFM_DATA_DIR, OWNFM_MASTER_KEY_FILE, OWNFM_PUBLIC_URL,
+OWNFM_NAVIDROME_URL, OWNFM_REGISTRATION, OWNFM_DEFAULT_TIMEZONE, OWNFM_COOKIE_SECURE,
+OWNFM_LISTENBRAINZ_API_URL, OWNFM_LASTFM_API_KEY, OWNFM_LASTFM_API_SECRET, OWNFM_DNS, OWNFM_CONFIG, RUST_LOG.";
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let mut config_path: Option<String> = std::env::var("GFM_CONFIG").ok();
+    let mut config_path: Option<String> = std::env::var("OWNFM_CONFIG").ok().or_else(|| std::env::var("GFM_CONFIG").ok());
     let mut cmd = "serve".to_string();
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
         }
     }
     if cmd == "version" {
-        println!("gordurasfm {}", env!("CARGO_PKG_VERSION"));
+        println!("ownfm {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
 
@@ -52,8 +52,9 @@ async fn main() -> Result<()> {
     match cmd.as_str() {
         "healthcheck" => return healthcheck(cfg.listen).await,
         "backup" => {
+            db::adopt_legacy_db(&cfg.db_path())?;
             let db = db::open_read_only(&cfg.db_path()).await?;
-            let p = gordurasfm::backup::backup(&db, &cfg.backups_dir(), "manual", chrono::Utc::now()).await?;
+            let p = ownfm::backup::backup(&db, &cfg.backups_dir(), "manual", chrono::Utc::now()).await?;
             println!("{}", p.display());
             return Ok(());
         }
@@ -61,13 +62,14 @@ async fn main() -> Result<()> {
     }
     std::fs::create_dir_all(&cfg.data_dir).with_context(|| format!("creando {}", cfg.data_dir.display()))?;
     let crypto = Crypto::load_or_create(&cfg.key_path())?;
+    db::adopt_legacy_db(&cfg.db_path())?;
     let pool = db::open(&cfg.db_path()).await?;
     let listen = cfg.listen;
-    tracing::info!(version = env!("CARGO_PKG_VERSION"), %listen, navidrome = %cfg.navidrome.url, bd = %cfg.db_path().display(), "arrancando GordurasFM");
+    tracing::info!(version = env!("CARGO_PKG_VERSION"), %listen, navidrome = %cfg.navidrome.url, bd = %cfg.db_path().display(), "arrancando OwnFM");
 
     let st = state::new(cfg, pool.clone(), crypto);
-    gordurasfm::spawn_background(&st);
-    let app = gordurasfm::app(st);
+    ownfm::spawn_background(&st);
+    let app = ownfm::app(st);
     let listener =
         tokio::net::TcpListener::bind(listen).await.with_context(|| format!("no se puede escuchar en {listen}"))?;
     axum::serve(listener, app).with_graceful_shutdown(shutdown()).await?;

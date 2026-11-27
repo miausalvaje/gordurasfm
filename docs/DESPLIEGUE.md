@@ -1,21 +1,21 @@
-# Instalar GordurasFM
+# Instalar OwnFM
 
-GordurasFM es **un solo binario estático** (Linux, musl) que trae la web, los certificados raíz, las zonas horarias y su propio resolutor DNS. No necesita base de datos aparte, ni Java, ni Node: SQLite va dentro.
+OwnFM es **un solo binario estático** (Linux, musl) que trae la web, los certificados raíz, las zonas horarias y su propio resolutor DNS. No necesita base de datos aparte, ni Java, ni Node: SQLite va dentro.
 
 | Dónde | Cómo | Guía |
 |---|---|---|
 | Debian/Ubuntu con systemd (LXC de Proxmox, VPS, Raspberry Pi) | `deploy/lxc/install.sh` | abajo |
-| Docker / Docker Compose (amd64 y arm64) | `ghcr.io/miausalvaje/gordurasfm` | abajo |
+| Docker / Docker Compose (amd64 y arm64) | `ghcr.io/miausalvaje/ownfm` | abajo |
 | Android con Termux | `deploy/termux/install.sh` | [`TERMUX.md`](TERMUX.md) |
 
-Binarios publicados en cada versión: `gordurasfm-x86_64-linux-musl`, `gordurasfm-aarch64-linux-musl` y `SHA256SUMS`.
+Binarios publicados en cada versión: `ownfm-x86_64-linux-musl`, `ownfm-aarch64-linux-musl` y `SHA256SUMS`.
 
 ## 1. LXC / servidor con systemd
 
 Recursos: 1 vCPU, 512 MB de RAM y 2-4 GB de disco sobran (medidas reales en la sección 6). Funciona en un LXC **sin privilegios**.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/miausalvaje/gordurasfm/main/deploy/lxc/install.sh \
+curl -fsSL https://raw.githubusercontent.com/miausalvaje/ownfm/main/deploy/lxc/install.sh \
   | sudo bash -s -- --navidrome-url http://IP-DE-NAVIDROME:4533
 ```
 
@@ -25,28 +25,28 @@ Opciones: `--version vX.Y.Z`, `--binary RUTA` (binario propio, sin descargar nad
 
 Qué hace:
 1. Descarga el binario de tu arquitectura y comprueba su SHA-256.
-2. Crea el usuario de sistema `gordurasfm`, `/var/lib/gordurasfm` (BD, imágenes y copias) y `/etc/gordurasfm/config.toml`.
-3. Genera la clave maestra `/etc/gordurasfm/master.key` (cifra los tokens y contraseñas guardados: **haz copia de ella**; sin ella no se pueden leer).
-4. Instala y arranca la unidad `gordurasfm.service` (aislada: `ProtectSystem=strict`, solo puede escribir en `/var/lib/gordurasfm`).
-5. Instala `gordurasfm-update`.
+2. Crea el usuario de sistema `ownfm`, `/var/lib/ownfm` (BD, imágenes y copias) y `/etc/ownfm/config.toml`.
+3. Genera la clave maestra `/etc/ownfm/master.key` (cifra los tokens y contraseñas guardados: **haz copia de ella**; sin ella no se pueden leer).
+4. Instala y arranca la unidad `ownfm.service` (aislada: `ProtectSystem=strict`, solo puede escribir en `/var/lib/ownfm`).
+5. Instala `ownfm-update`.
 
 Archivos:
 
 | Ruta | Qué es |
 |---|---|
-| `/usr/local/bin/gordurasfm` | el programa |
-| `/etc/gordurasfm/config.toml` | configuración (opciones en [`server/config.example.toml`](../server/config.example.toml)) |
-| `/etc/gordurasfm/master.key` | clave maestra |
-| `/var/lib/gordurasfm/gordurasfm.db` | la BD (SQLite en modo WAL) |
-| `/var/lib/gordurasfm/backups/` | copias automáticas |
+| `/usr/local/bin/ownfm` | el programa |
+| `/etc/ownfm/config.toml` | configuración (opciones en [`server/config.example.toml`](../server/config.example.toml)) |
+| `/etc/ownfm/master.key` | clave maestra |
+| `/var/lib/ownfm/ownfm.db` | la BD (SQLite en modo WAL) |
+| `/var/lib/ownfm/backups/` | copias automáticas |
 
-Registros: `journalctl -u gordurasfm -f`.
+Registros: `journalctl -u ownfm -f`.
 
 ### Actualizar
 
 ```sh
-sudo gordurasfm-update                 # última versión
-sudo gordurasfm-update --version v0.1.1
+sudo ownfm-update                 # última versión
+sudo ownfm-update --version v0.1.1
 ```
 
 Antes de cambiar el binario guarda una copia de la BD (`backups/manual-*.db`). Si la versión nueva no arranca en 30 s, vuelve a poner la anterior. Si además la nueva había migrado la BD, la anterior no arrancará con ella: restaura la copia (sección 5).
@@ -54,9 +54,9 @@ Antes de cambiar el binario guarda una copia de la BD (`backups/manual-*.db`). S
 ### Desinstalar
 
 ```sh
-sudo systemctl disable --now gordurasfm
-sudo rm /etc/systemd/system/gordurasfm.service /usr/local/bin/gordurasfm /usr/local/sbin/gordurasfm-update
-# Datos (¡irrecuperable!): sudo rm -r /var/lib/gordurasfm /etc/gordurasfm && sudo userdel gordurasfm
+sudo systemctl disable --now ownfm
+sudo rm /etc/systemd/system/ownfm.service /usr/local/bin/ownfm /usr/local/sbin/ownfm-update
+# Datos (¡irrecuperable!): sudo rm -r /var/lib/ownfm /etc/ownfm && sudo userdel ownfm
 ```
 
 ## 2. Docker
@@ -64,38 +64,38 @@ sudo rm /etc/systemd/system/gordurasfm.service /usr/local/bin/gordurasfm /usr/lo
 Imagen `FROM scratch` (solo el binario), usuario sin privilegios (65532), volumen `/data`:
 
 ```sh
-docker run -d --name gordurasfm -p 8090:8090 \
-  -e GFM_NAVIDROME_URL=http://IP-DE-NAVIDROME:4533 \
-  -e GFM_PUBLIC_URL=http://IP-DEL-SERVIDOR:8090 \
-  -v gordurasfm-data:/data --restart unless-stopped \
-  ghcr.io/miausalvaje/gordurasfm:latest
+docker run -d --name ownfm -p 8090:8090 \
+  -e OWNFM_NAVIDROME_URL=http://IP-DE-NAVIDROME:4533 \
+  -e OWNFM_PUBLIC_URL=http://IP-DEL-SERVIDOR:8090 \
+  -v ownfm-data:/data --restart unless-stopped \
+  ghcr.io/miausalvaje/ownfm:latest
 ```
 
 Con Navidrome en el mismo Compose: [`deploy/docker/compose.yaml`](../deploy/docker/compose.yaml) (ya trae `ND_LISTENBRAINZ_BASEURL`).
 
-- La configuración va por variables `GFM_*` (lista en `gordurasfm --help`). También se puede montar un `config.toml` y pasar `GFM_CONFIG=/ruta/config.toml`.
+- La configuración va por variables `OWNFM_*` (lista en `ownfm --help`). También se puede montar un `config.toml` y pasar `OWNFM_CONFIG=/ruta/config.toml`.
 - La clave maestra se crea en `/data/master.key`. Copia de seguridad = copiar el volumen entero.
 - Si montas una carpeta del host en vez de un volumen con nombre: `sudo chown 65532:65532 carpeta`.
-- `docker exec gordurasfm /gordurasfm backup` hace una copia al momento en `/data/backups`.
-- Tiene `HEALTHCHECK` (`gordurasfm healthcheck`).
+- `docker exec ownfm /ownfm backup` hace una copia al momento en `/data/backups`.
+- Tiene `HEALTHCHECK` (`ownfm healthcheck`).
 
 ## 3. Conectar Navidrome
 
 1. En `navidrome.toml` (o variables):
    ```toml
    ListenBrainz.Enabled = true
-   ListenBrainz.BaseURL = "http://IP-DE-GORDURASFM:8090/1/"
+   ListenBrainz.BaseURL = "http://IP-DE-OWNFM:8090/1/"
    ```
-   o `ND_LISTENBRAINZ_ENABLED=true` y `ND_LISTENBRAINZ_BASEURL=http://IP-DE-GORDURASFM:8090/1/`. Reinicia Navidrome.
-2. Cada usuario entra en GordurasFM con su cuenta de Navidrome, va a *Conexiones y ajustes*, genera un **token de escucha** y lo pega en *Navidrome → Personal → ListenBrainz*.
-3. Si alguien ya enviaba a ListenBrainz, que conecte su token real en GordurasFM: sus escuchas siguen llegando a ListenBrainz. Los usuarios que no usan GordurasFM no notan nada: los tokens que no son de nadie se pasan tal cual a ListenBrainz.
+   o `ND_LISTENBRAINZ_ENABLED=true` y `ND_LISTENBRAINZ_BASEURL=http://IP-DE-OWNFM:8090/1/`. Reinicia Navidrome.
+2. Cada usuario entra en OwnFM con su cuenta de Navidrome, va a *Conexiones y ajustes*, genera un **token de escucha** y lo pega en *Navidrome → Personal → ListenBrainz*.
+3. Si alguien ya enviaba a ListenBrainz, que conecte su token real en OwnFM: sus escuchas siguen llegando a ListenBrainz. Los usuarios que no usan OwnFM no notan nada: los tokens que no son de nadie se pasan tal cual a ListenBrainz.
 
 ## 4. Acceso desde fuera (proxy inverso)
 
-Pon GordurasFM detrás de tu proxy (Nginx Proxy Manager, Caddy, Traefik…) y cambia `public_url` a la URL `https://…`: las cookies pasan a ser `Secure` solas. No hace falta nada especial (no usa WebSocket). Ejemplo con Caddy:
+Pon OwnFM detrás de tu proxy (Nginx Proxy Manager, Caddy, Traefik…) y cambia `public_url` a la URL `https://…`: las cookies pasan a ser `Secure` solas. No hace falta nada especial (no usa WebSocket). Ejemplo con Caddy:
 
 ```
-gordurasfm.example.com {
+ownfm.example.com {
     reverse_proxy 127.0.0.1:8090
 }
 ```
@@ -104,17 +104,17 @@ gordurasfm.example.com {
 
 - **Automáticas**: una diaria y una semanal con `VACUUM INTO` (consistentes aunque esté recibiendo escuchas) en `backups/`; se guardan 7 y 4 (`[backup]` en la configuración).
 - **Antes de migrar**: al arrancar una versión con cambios en la BD se guarda `backups/pre-migracion-*.db`.
-- **A mano**: `sudo -u gordurasfm gordurasfm backup --config /etc/gordurasfm/config.toml` (`manual-*.db`; también la hace `gordurasfm-update`).
+- **A mano**: `sudo -u ownfm ownfm backup --config /etc/ownfm/config.toml` (`manual-*.db`; también la hace `ownfm-update`).
 - De las copias a mano y de antes de migrar se guardan las 5 más nuevas de cada tipo.
 - **Qué copiar fuera del servidor**: `backups/` (o la BD) **y** `master.key`.
 
 Restaurar:
 
 ```sh
-sudo systemctl stop gordurasfm
-sudo -u gordurasfm cp /var/lib/gordurasfm/backups/diaria-AAAAMMDD-HHMMSS.db /var/lib/gordurasfm/gordurasfm.db
-sudo rm -f /var/lib/gordurasfm/gordurasfm.db-wal /var/lib/gordurasfm/gordurasfm.db-shm
-sudo systemctl start gordurasfm
+sudo systemctl stop ownfm
+sudo -u ownfm cp /var/lib/ownfm/backups/diaria-AAAAMMDD-HHMMSS.db /var/lib/ownfm/ownfm.db
+sudo rm -f /var/lib/ownfm/ownfm.db-wal /var/lib/ownfm/ownfm.db-shm
+sudo systemctl start ownfm
 ```
 
 Además, cada usuario puede exportar todo su historial desde la web (*Conexiones y ajustes → Exportar mi historial*) en un formato que se puede volver a importar.
@@ -137,3 +137,14 @@ Medido en un LXC nuevo de Proxmox (Ubuntu 24.04, 1 vCPU, 512 MB), binario `x86_6
 | Exportar 100 000 escuchas a CSV | 618 ms |
 
 Tiempos medidos desde otro LXC de la misma red (incluyen la red). El binario ocupa unos 30 MB porque lleva la web dentro.
+
+## 7. Si vienes de GordurasFM
+
+OwnFM se llamaba antes GordurasFM. Desde la v0.2.0 todo lleva el nombre nuevo: binario `ownfm`, servicio `ownfm.service`, usuario `ownfm`, carpetas `/etc/ownfm` y `/var/lib/ownfm`, BD `ownfm.db`, variables `OWNFM_*` e imagen `ghcr.io/miausalvaje/ownfm`.
+
+- **LXC / systemd**: `sudo gordurasfm-update` (o el instalador nuevo). Detecta la instalación antigua y hace una copia de la BD con el programa antiguo. Después pasa carpetas, usuario y configuración a los nombres nuevos (la clave maestra se conserva), quita el servicio, el binario y el actualizador antiguos y arranca `ownfm.service`. Desde entonces se actualiza con `sudo ownfm-update`.
+- **Docker**: cambia la imagen a `ghcr.io/miausalvaje/ownfm`. El volumen `/data` sirve tal cual: al arrancar, `gordurasfm.db` se renombra a `ownfm.db`.
+- **Termux**: vuelve a lanzar el instalador. Pasa `~/.gordurasfm` a `~/.ownfm` y cambia el servicio.
+- Las variables `GFM_*` siguen funcionando (con un aviso en el registro), pero mejor cámbialas a `OWNFM_*`.
+- Al cambiar el nombre de la cookie, todos tienen que volver a entrar una vez en la web.
+- Navidrome no cambia: `ListenBrainz.BaseURL` sigue siendo la misma dirección.

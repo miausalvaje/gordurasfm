@@ -118,7 +118,7 @@ class _GordurasAppState extends State<GordurasApp> {
     api: widget.api,
     session: widget.session,
     child: MaterialApp.router(
-      title: 'GordurasFM',
+      title: 'OwnFM',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
       routerConfig: _router,

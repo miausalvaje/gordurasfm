@@ -23,7 +23,7 @@ impl Crypto {
         let cipher = XChaCha20Poly1305::new_from_slice(key).expect("clave de 32 bytes");
         // Clave distinta para el HMAC, derivada de la maestra.
         let mut h = Sha256::new();
-        h.update(b"gordurasfm-hmac-v1");
+        h.update(b"ownfm-hmac-v1");
         h.update(key);
         let hmac_key: [u8; 32] = h.finalize().into();
         Self { cipher, hmac_key }

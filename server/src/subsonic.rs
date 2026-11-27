@@ -3,7 +3,7 @@
 use serde::Deserialize;
 use serde_json::Value;
 
-pub const CLIENT_NAME: &str = "gordurasfm";
+pub const CLIENT_NAME: &str = "ownfm";
 pub const API_VERSION: &str = "1.16.1";
 
 /// Credenciales de Subsonic de un usuario: `t = md5(contraseña + s)`.

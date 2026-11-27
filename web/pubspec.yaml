@@ -1,5 +1,5 @@
-name: gordurasfm
-description: "GordurasFM: estadísticas de escucha y Wrapped para Navidrome"
+name: ownfm
+description: "OwnFM: estadísticas de escucha y Wrapped para Navidrome"
 publish_to: 'none'
 version: 0.1.0+1
 

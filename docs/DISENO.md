@@ -1,4 +1,4 @@
-# GordurasFM: diseño (fase 0)
+# OwnFM: diseño (fase 0)
 
 Plataforma autoalojada de estadísticas de escucha (estilo Last.fm + Wrapped) para los usuarios de un Navidrome.
 
@@ -26,15 +26,15 @@ Leyenda: ✅ comprobado · 💡 propuesta · ⚠️ limitación o riesgo · ❓ 
   - Manda `artist_name`, `track_name`, `release_name`, `duration_ms`, `tracknumber`, `artist_names` y los MBID (grabación, release, release group y artistas) si las etiquetas los tienen.
   - **No manda el id de la canción en Navidrome**, así que portadas e ids hay que resolverlos aparte (ver §3.4).
   - Si la respuesta es un error de red, 500 o 503, Navidrome **guarda la escucha y la reintenta** (`ErrRetryLater`). Cualquier otro error la descarta.
-  - ⚠️ **Usa la misma `BaseURL` para metadatos** (`metadata/artist`, `popularity/top-recordings-for-artist/…`). Si apuntamos la `BaseURL` a GordurasFM, esas peticiones nos llegan a nosotros, así que hay que reenviarlas tal cual a ListenBrainz (ver §3.2).
-- ⚠️ `ND_LISTENBRAINZ_BASEURL` afecta **a toda la instancia**: todos los usuarios de ese Navidrome pasan por GordurasFM.
+  - ⚠️ **Usa la misma `BaseURL` para metadatos** (`metadata/artist`, `popularity/top-recordings-for-artist/…`). Si apuntamos la `BaseURL` a OwnFM, esas peticiones nos llegan a nosotros, así que hay que reenviarlas tal cual a ListenBrainz (ver §3.2).
+- ⚠️ `ND_LISTENBRAINZ_BASEURL` afecta **a toda la instancia**: todos los usuarios de ese Navidrome pasan por OwnFM.
 
 ### Decisiones (confirmadas el 2026-11-25)
 1. ✅ Interfaz **en español**, con todos los textos en un solo archivo (`lib/l10n/es.dart`) para traducirla más tarde.
 2. ✅ **Key de Last.fm de la instancia** (la configura el admin) y, opcionalmente, una propia por usuario.
 3. ✅ Entra **cualquier usuario del Navidrome**; el primero es admin. Interruptor `registration = "approval"` para exigir aprobación.
-4. ✅ Repositorio **público `miausalvaje/gordurasfm`, AGPL-3.0**.
-5. ✅ Entorno de desarrollo: **LXC 135 `gordurasfm-dev`** (§10).
+4. ✅ Repositorio **público `miausalvaje/ownfm`, AGPL-3.0**.
+5. ✅ Entorno de desarrollo: **LXC 135 `ownfm-dev`** (§10).
 6. ✅ Se reconocen los tokens reales de ListenBrainz ya conectados y los desconocidos pasan tal cual a ListenBrainz (§3.2).
 
 ---
@@ -43,13 +43,13 @@ Leyenda: ✅ comprobado · 💡 propuesta · ⚠️ limitación o riesgo · ❓ 
 
 ```
                  ┌──────────────── Navidrome 0.64.2 (LXC 105) ───────────────┐
-                 │  ND_LISTENBRAINZ_BASEURL=http://gordurasfm:8090/1/        │
-                 │  cada usuario pega su token de GordurasFM en su perfil    │
+                 │  ND_LISTENBRAINZ_BASEURL=http://ownfm:8090/1/        │
+                 │  cada usuario pega su token de OwnFM en su perfil    │
                  └───────┬──────────────────────────────▲────────────────────┘
       submit-listens /   │                              │ API Subsonic (login, búsqueda,
       validate-token     │                              │ portadas, stream, getNowPlaying)
                          ▼                              │
-┌──────────────────────── gordurasfm (un binario Rust) ─┴─────────────────────────┐
+┌──────────────────────── ownfm (un binario Rust) ─┴─────────────────────────┐
 │ axum                                                                            │
 │  /1/*            compatibilidad ListenBrainz (+ paso a LB para metadatos)       │
 │  /api/v1/*       API REST propia (OpenAPI en /api/docs)                         │
@@ -63,7 +63,7 @@ Leyenda: ✅ comprobado · 💡 propuesta · ⚠️ limitación o riesgo · ❓ 
 │  poller      getNowPlaying (respaldo, desactivado por defecto)                  │
 │  wrapped     genera fotos fijas anuales; copias de la BD cada noche             │
 │                                                                                 │
-│ SQLite WAL  /var/lib/gordurasfm/gordurasfm.db   + images/ (portadas en caché)  │
+│ SQLite WAL  /var/lib/ownfm/ownfm.db   + images/ (portadas en caché)  │
 └──────────────────────┬───────────────────────────────┬─────────────────────────┘
                        ▼                               ▼
             api.listenbrainz.org                 ws.audioscrobbler.com
@@ -73,9 +73,9 @@ Leyenda: ✅ comprobado · 💡 propuesta · ⚠️ limitación o riesgo · ❓ 
 - Un solo crate `server/`, con módulos `config`, `db`, `crypto`, `auth`, `subsonic`, `listenbrainz` (compatibilidad y cliente), `lastfm`, `scrobble` (ingesta, normalización y duplicados), `forward`, `stats`, `wrapped`, `media`, `jobs`, `api` y `web`.
 - Crates: `axum`, `tokio`, `sqlx` (sqlite, migrate, SQLite empaquetado), `reqwest` (rustls + `webpki-roots` + `hickory-dns`, sin OpenSSL), `tower-http` (compresión, límites, trazas), `chrono` + `chrono-tz` (zonas horarias incluidas en el binario), `chacha20poly1305`, `sha2`, `md-5`, `unicode-normalization`, `rust-embed`, `utoipa` + `utoipa-scalar`, `moka` (caché), `tracing`.
 - **Binario estático**: `x86_64-unknown-linux-musl` y `aarch64-unknown-linux-musl` con `cargo-zigbuild`. No depende de glibc, OpenSSL, zoneinfo ni certificados del sistema, así que el mismo binario sirve para Ubuntu, Docker `scratch` y Termux.
-- Configuración: `config.toml`, que se puede sobrescribir con variables `GFM_*`. Los secretos de la instancia (clave maestra y key de Last.fm) van en archivos con permisos 600, nunca en la BD en claro.
+- Configuración: `config.toml`, que se puede sobrescribir con variables `OWNFM_*`. Los secretos de la instancia (clave maestra y key de Last.fm) van en archivos con permisos 600, nunca en la BD en claro.
 - Consumo ✅ medido en la fase 5 (LXC nuevo, 1 vCPU, 512 MB): 18 MB de RSS en reposo recién arrancado, 45 MB tras importar 100 000 escuchas, pico de 85 MB de RSS (104 MB del cgroup, con caché de disco) importando, y 4 ms de CPU por minuto en reposo. Detalle en `docs/DESPLIEGUE.md`.
-- Cómo quedó: sin `utoipa` (la especificación OpenAPI se escribe a mano en `docs/openapi.json` y un test comprueba que cubre todas las rutas del código) y sin la función `hickory-dns` de `reqwest`: resolutor propio (`server/src/dns.rs`) que lee `GFM_DNS`, `/etc/resolv.conf` o el `resolv.conf` de Termux y, si no hay, usa Cloudflare.
+- Cómo quedó: sin `utoipa` (la especificación OpenAPI se escribe a mano en `docs/openapi.json` y un test comprueba que cubre todas las rutas del código) y sin la función `hickory-dns` de `reqwest`: resolutor propio (`server/src/dns.rs`) que lee `OWNFM_DNS`, `/etc/resolv.conf` o el `resolv.conf` de Termux y, si no hay, usa Cloudflare.
 
 ### Frontend (Flutter Web)
 - `web/` con `go_router`, `flutter_riverpod` (estado), `fl_chart`, `flutter_animate`, `just_audio` y `http`.
@@ -88,11 +88,11 @@ Leyenda: ✅ comprobado · 💡 propuesta · ⚠️ limitación o riesgo · ❓ 
 ## 3. Navidrome, proxy de ListenBrainz y Last.fm
 
 ### 3.1 Login
-1. El usuario escribe su usuario y su contraseña de Navidrome en GordurasFM.
+1. El usuario escribe su usuario y su contraseña de Navidrome en OwnFM.
 2. El backend genera un `salt` aleatorio, calcula `token = md5(contraseña + salt)` y llama a `ping` y `getUser` de Subsonic con `u`, `t` y `s`.
 3. Si funciona, crea o actualiza el usuario y guarda `(token, salt)` **cifrados** con XChaCha20-Poly1305 y la clave maestra. La contraseña se descarta en ese momento.
-4. Emite una sesión propia: 256 bits aleatorios, en BD solo su SHA-256, en una cookie `gfm_session` `HttpOnly`, `SameSite=Lax` y `Secure` si va por HTTPS. Dura 30 días y se renueva con el uso.
-5. ⚠️ Si el usuario cambia la contraseña en Navidrome, el token guardado deja de valer. GordurasFM lo detecta en la siguiente llamada, marca «reconectar» y pide entrar otra vez. Las escuchas **siguen llegando**, porque usan otro token.
+4. Emite una sesión propia: 256 bits aleatorios, en BD solo su SHA-256, en una cookie `ownfm_session` `HttpOnly`, `SameSite=Lax` y `Secure` si va por HTTPS. Dura 30 días y se renueva con el uso.
+5. ⚠️ Si el usuario cambia la contraseña en Navidrome, el token guardado deja de valer. OwnFM lo detecta en la siguiente llamada, marca «reconectar» y pide entrar otra vez. Las escuchas **siguen llegando**, porque usan otro token.
 6. ⚠️ Ojo con `md5(contraseña+salt)`: es un hash débil de la contraseña. Por eso va cifrado y la clave maestra está en un archivo aparte (600).
 
 ### 3.2 Endpoint compatible con ListenBrainz
@@ -111,9 +111,9 @@ Al llegar una escucha `single`:
 
 Las `playing_now` no se guardan como escucha: van a la memoria («escuchando ahora» del perfil) y se reenvían al momento, sin cola, porque no tiene sentido reintentar algo que ya ha pasado.
 
-💡 **Tokens de ListenBrainz ya enlazados.** Si un usuario de Navidrome ya tenía puesto su token real de ListenBrainz, al cambiar la `BaseURL` ese token llegaría a GordurasFM y se rechazaría. Propuesta:
-- Si el token coincide con el token de ListenBrainz que un usuario conectó en GordurasFM (búsqueda por HMAC, nunca en claro), se trata como suyo. **Así no tiene que cambiar nada en Navidrome.**
-- Si no coincide con nadie, la petición pasa tal cual a ListenBrainz y no se guarda. Los usuarios que no usan GordurasFM no notan nada.
+💡 **Tokens de ListenBrainz ya enlazados.** Si un usuario de Navidrome ya tenía puesto su token real de ListenBrainz, al cambiar la `BaseURL` ese token llegaría a OwnFM y se rechazaría. Propuesta:
+- Si el token coincide con el token de ListenBrainz que un usuario conectó en OwnFM (búsqueda por HMAC, nunca en claro), se trata como suyo. **Así no tiene que cambiar nada en Navidrome.**
+- Si no coincide con nadie, la petición pasa tal cual a ListenBrainz y no se guarda. Los usuarios que no usan OwnFM no notan nada.
 
 ### 3.3 Reenvío (`forwarder`)
 - Tabla `forward_queue(scrobble_id, destino, estado, intentos, siguiente_intento, último_error)`.
@@ -141,7 +141,7 @@ Las `playing_now` no se guardan como escucha: van a la memoria («escuchando aho
 - Para no contar dos veces, **solo se aplica a usuarios sin escuchas por el endpoint en los últimos 7 días**. Además se pasa siempre el filtro de duplicados de ±60 s.
 
 ### 3.6 Last.fm: conexión
-- Flujo web de Last.fm: `https://www.last.fm/api/auth/?api_key=…&cb=<GordurasFM>/api/v1/lastfm/callback`, después `auth.getSession` firmado con el *secret* y se guarda la *session key* cifrada. No caduca.
+- Flujo web de Last.fm: `https://www.last.fm/api/auth/?api_key=…&cb=<OwnFM>/api/v1/lastfm/callback`, después `auth.getSession` firmado con el *secret* y se guarda la *session key* cifrada. No caduca.
 - Key de la instancia por defecto; el usuario puede poner la suya (key + secret cifrado) en «Conexiones».
 - ⚠️ La URL de vuelta tiene que ser accesible desde el navegador del usuario (en la red de casa, vale la IP local).
 
@@ -155,7 +155,7 @@ Las `playing_now` no se guardan como escucha: van a la memoria («escuchando aho
 - Límite: como mucho 4 peticiones/s; ante 429/500/29 espera creciente. Progreso = página / total, con barra en la web.
 - 💡 Tiempo estimado: 100 000 escuchas → 500 páginas → entre 2 y 10 min según cómo responda Last.fm.
 - **Resincronizar**: `from = última escucha importada − 1 h` y solo trae lo nuevo. El filtro de duplicados quita el solape.
-- Por fichero (sin API): CSV `artist,album,track,date` (el de herramientas como *lastfm-to-csv*), JSON de exportación de ListenBrainz y JSON propio de GordurasFM. Se sube por la web y se procesa con el mismo trabajo.
+- Por fichero (sin API): CSV `artist,album,track,date` (el de herramientas como *lastfm-to-csv*), JSON de exportación de ListenBrainz y JSON propio de OwnFM. Se sube por la web y se procesa con el mismo trabajo.
 - Las escuchas importadas llevan `source = lastfm` (o `import_file`).
 
 ### 4.2 Normalización
@@ -328,9 +328,9 @@ Cada consulta de datos lleva `WHERE user_id = <sesión>`. No hay forma de pedir 
 
 ### 8.0 Cómo quedó (fase 5) ✅
 - Guía para usuarios: `docs/DESPLIEGUE.md` (LXC, Docker, Navidrome, proxy, copias) y `docs/TERMUX.md`.
-- `deploy/lxc/install.sh` probado en un LXC nuevo sin privilegios (Ubuntu 24.04) y en la CI. Actualizar = volver a lanzarlo o `gordurasfm-update` (en vez de un subcomando `gordurasfm update`): copia la BD con `gordurasfm backup`, cambia el binario y, si no responde en 30 s, vuelve al anterior.
+- `deploy/lxc/install.sh` probado en un LXC nuevo sin privilegios (Ubuntu 24.04) y en la CI. Actualizar = volver a lanzarlo o `ownfm-update` (en vez de un subcomando `ownfm update`): copia la BD con `ownfm backup`, cambia el binario y, si no responde en 30 s, vuelve al anterior.
 - Unidad systemd más aislada que lo previsto (`systemd-analyze security`: 1.2 OK), con `MemoryMax=384M` en vez de 256M para dejar margen a importaciones grandes. Funciona en LXC sin privilegios con `nesting=1`.
-- Subcomandos nuevos: `gordurasfm backup` (copia con el servidor en marcha, BD abierta en solo lectura) y `gordurasfm healthcheck` (para el `HEALTHCHECK` de Docker, que no tiene curl).
+- Subcomandos nuevos: `ownfm backup` (copia con el servidor en marcha, BD abierta en solo lectura) y `ownfm healthcheck` (para el `HEALTHCHECK` de Docker, que no tiene curl).
 - Docker: `Dockerfile` en la raíz, `FROM scratch` con los binarios de `scripts/build-release.sh`; la CI (`release.yml`) prueba la imagen amd64 (healthcheck) y la arm64 emulada, y solo publica con una etiqueta `vX.Y.Z`.
 - Termux: `deploy/termux/install.sh` (termux-services + `termux-wake-lock`). Probado el binario aarch64 con qemu sin `/etc/resolv.conf` y con `$PREFIX/etc/resolv.conf`; no se ha probado en un móvil real.
 
@@ -338,24 +338,24 @@ Cada consulta de datos lleva `WHERE user_id = <sesión>`. No hay forma de pedir 
 - `deploy/lxc/install.sh`:
   1. Detecta la arquitectura.
   2. Descarga el binario de la *release* de GitHub (o usa uno local con `--binary`) y comprueba su SHA-256.
-  3. Crea el usuario de sistema `gordurasfm`, `/var/lib/gordurasfm` (BD, imágenes y copias) y `/etc/gordurasfm/config.toml`.
-  4. Genera la clave maestra en `/etc/gordurasfm/master.key` (600) e instala la unidad systemd.
-  5. Instala `gordurasfm update` para las actualizaciones (copia la BD antes de cambiar el binario).
-- La unidad systemd lleva `ProtectSystem=strict`, `ReadWritePaths=/var/lib/gordurasfm`, `NoNewPrivileges`, `PrivateTmp` y `MemoryMax=256M`. Funciona en un LXC sin privilegios.
+  3. Crea el usuario de sistema `ownfm`, `/var/lib/ownfm` (BD, imágenes y copias) y `/etc/ownfm/config.toml`.
+  4. Genera la clave maestra en `/etc/ownfm/master.key` (600) e instala la unidad systemd.
+  5. Instala `ownfm update` para las actualizaciones (copia la BD antes de cambiar el binario).
+- La unidad systemd lleva `ProtectSystem=strict`, `ReadWritePaths=/var/lib/ownfm`, `NoNewPrivileges`, `PrivateTmp` y `MemoryMax=256M`. Funciona en un LXC sin privilegios.
 - Recursos propuestos: 1 vCPU, 512 MB de RAM y 4 GB de disco.
-- Navidrome (LXC 105): añadir `ListenBrainz.BaseURL = "http://<IP-gordurasfm>:8090/1/"` en `navidrome.toml` y reiniciar. ⚠️ Es un cambio en producción y se hará **solo con tu permiso**, en la fase 1, después de probarlo con un Navidrome de pruebas.
-- Acceso desde fuera por NPMplus (`gordurasfm.miausalvaje.es`), si lo quieres: con la skill de abrir dominio, también con tu permiso.
+- Navidrome (LXC 105): añadir `ListenBrainz.BaseURL = "http://<IP-ownfm>:8090/1/"` en `navidrome.toml` y reiniciar. ⚠️ Es un cambio en producción y se hará **solo con tu permiso**, en la fase 1, después de probarlo con un Navidrome de pruebas.
+- Acceso desde fuera por NPMplus (`ownfm.miausalvaje.es`), si lo quieres: con la skill de abrir dominio, también con tu permiso.
 
 ### 8.2 Docker y Docker Compose
-- Imagen `ghcr.io/miausalvaje/gordurasfm` multiarquitectura (amd64 y arm64), `FROM scratch` + binario estático: unos 20-30 MB (estimado). Volumen `/data` y usuario no root.
-- La construye GitHub Actions con `buildx`. El `compose.yaml` de ejemplo lleva Navidrome + GordurasFM, con `ND_LISTENBRAINZ_BASEURL` ya puesto.
+- Imagen `ghcr.io/miausalvaje/ownfm` multiarquitectura (amd64 y arm64), `FROM scratch` + binario estático: unos 20-30 MB (estimado). Volumen `/data` y usuario no root.
+- La construye GitHub Actions con `buildx`. El `compose.yaml` de ejemplo lleva Navidrome + OwnFM, con `ND_LISTENBRAINZ_BASEURL` ya puesto.
 
 ### 8.3 Android con Termux (con honestidad)
 - ❌ **Docker no**: necesita funciones del kernel que Android no tiene (o no deja usar sin root).
 - ✅ **Opción recomendada: binario nativo `aarch64-musl`.** Como es estático y trae sus propios certificados, zonas horarias y resolutor DNS, funciona en Termux sin instalar nada. El DNS se lee de `$PREFIX/etc/resolv.conf` y, si no está, se usa 1.1.1.1. Se arranca con `termux-services` (runit) o Termux:Boot, junto a `termux-wake-lock`.
 - ⚠️ Android puede matar Termux aunque esté en segundo plano (ahorro de batería). Hay que quitarle la optimización de batería a Termux. Aun así, un móvil no da la fiabilidad 24/7 de un LXC. Navidrome reintenta las escuchas que fallan, así que un corte corto no pierde datos.
 - Alternativa: `proot-distro` con Ubuntu y el mismo binario. Va más lento y no aporta nada, salvo que se quiera la misma estructura que en el LXC. Se documenta, pero no es la recomendada.
-- Encaja con tu Navidrome del móvil (Termux, `korvilash.top`): GordurasFM se ejecutaría a su lado en `127.0.0.1` y ese Navidrome lo usaría como `BaseURL`.
+- Encaja con tu Navidrome del móvil (Termux, `korvilash.top`): OwnFM se ejecutaría a su lado en `127.0.0.1` y ese Navidrome lo usaría como `BaseURL`.
 
 ---
 
@@ -364,7 +364,7 @@ Cada consulta de datos lleva `WHERE user_id = <sesión>`. No hay forma de pedir 
 - Las escuchas **nunca se borran solas**. Solo el propio usuario puede borrar una escucha o todo su historial (con confirmación).
 - Se guarda el JSON original de cada escucha, así que una mejora de la normalización se puede aplicar a todo el historial sin perder nada.
 - Migraciones solo hacia delante, con copia automática de la BD antes de aplicar una nueva.
-- ✅ **Copia diaria** con `VACUUM INTO` a `/var/lib/gordurasfm/backups/` (se guardan 7 diarias y 4 semanales; `[backup]` en la configuración), además de la copia de Proxmox del LXC. Se revisa cada hora y se hace si la última tiene más de 23 h, así que los reinicios no la saltan (`server/src/backup.rs`).
+- ✅ **Copia diaria** con `VACUUM INTO` a `/var/lib/ownfm/backups/` (se guardan 7 diarias y 4 semanales; `[backup]` en la configuración), además de la copia de Proxmox del LXC. Se revisa cada hora y se hace si la última tiene más de 23 h, así que los reinicios no la saltan (`server/src/backup.rs`).
 - ✅ Copia `pre-migracion-*.db` antes de aplicar migraciones nuevas (`db::open`).
 - **Exportación** por usuario (`/api/v1/export`): todo su historial en JSON y CSV, en el mismo formato que se puede volver a importar.
 - Wrapped: filas inmutables con número de versión. Se guardan copias propias de las imágenes en `images/`, que no se borran mientras algún Wrapped las use.
@@ -373,9 +373,9 @@ Cada consulta de datos lleva `WHERE user_id = <sesión>`. No hay forma de pedir 
 
 ## 10. Entorno de desarrollo ✅
 
-- **LXC 135 `gordurasfm-dev`** (192.168.1.46), Debian 13, sin privilegios: 8 vCPU, 8 GB de RAM, 40 GB en `thinpool-nvme`, sin arranque automático.
+- **LXC 135 `ownfm-dev`** (192.168.1.46), Debian 13, sin privilegios: 8 vCPU, 8 GB de RAM, 40 GB en `thinpool-nvme`, sin arranque automático.
 - Usuario `dev` con Rust estable, `cargo-zigbuild` + zig (binarios musl x86_64 y aarch64), Flutter estable y **Navidrome 0.64.2 de pruebas** en `~/navidrome-pruebas` (binario de Go, sin Docker).
-- El código se edita en `~/GordurasFM` del LXC 111 y se copia con `./sync.sh` (rsync). La prueba de principio a fin con Navidrome real es `scripts/e2e-navidrome.sh`.
+- El código se edita en `~/OwnFM` del LXC 111 y se copia con `./sync.sh` (rsync). La prueba de principio a fin con Navidrome real es `scripts/e2e-navidrome.sh`.
 
 ---
 

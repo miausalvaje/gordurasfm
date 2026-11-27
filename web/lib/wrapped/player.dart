@@ -233,7 +233,7 @@ class _WrappedPlayerScreenState extends State<WrappedPlayerScreen> with TickerPr
   Future<void> _shareCurrent() async {
     final y = _d!.year;
     final png = await _withStill(_capture);
-    await shareOrDownload(png, 'gordurasfm-wrapped-$y-${_i + 1}.png', 'image/png');
+    await shareOrDownload(png, 'ownfm-wrapped-$y-${_i + 1}.png', 'image/png');
   }
 
   Future<void> _exportAll() async {
@@ -247,12 +247,12 @@ class _WrappedPlayerScreenState extends State<WrappedPlayerScreen> with TickerPr
           _busyMsg = TW.exportando(j + 1, _slides.length);
         });
         await _frames();
-        out.add(('gordurasfm-wrapped-$y-${(j + 1).toString().padLeft(2, '0')}.png', await _capture()));
+        out.add(('ownfm-wrapped-$y-${(j + 1).toString().padLeft(2, '0')}.png', await _capture()));
       }
       setState(() => _i = back);
       return out;
     });
-    await shareOrDownload(zipStore(files), 'gordurasfm-wrapped-$y.zip', 'application/zip', share: false);
+    await shareOrDownload(zipStore(files), 'ownfm-wrapped-$y.zip', 'application/zip', share: false);
     if (mounted) toast(context, TW.exportado);
   }
 

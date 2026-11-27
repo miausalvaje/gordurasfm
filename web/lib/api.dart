@@ -1,4 +1,4 @@
-// Cliente de la API de GordurasFM y modelos.
+// Cliente de la API de OwnFM y modelos.
 
 import 'dart:convert';
 
@@ -40,7 +40,7 @@ class Api {
     final req = http.Request(method, _uri(path, q));
     if (method != 'GET') {
       // Protección CSRF del servidor.
-      req.headers['X-Requested-With'] = 'GordurasFM';
+      req.headers['X-Requested-With'] = 'OwnFM';
       req.headers['Content-Type'] = 'application/json';
       req.body = jsonEncode(body ?? {});
     }

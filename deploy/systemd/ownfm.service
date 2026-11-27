@@ -1,14 +1,14 @@
 [Unit]
-Description=GordurasFM (estadísticas de escucha para Navidrome)
-Documentation=https://github.com/miausalvaje/gordurasfm
+Description=OwnFM (estadísticas de escucha para Navidrome)
+Documentation=https://github.com/miausalvaje/ownfm
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=gordurasfm
-Group=gordurasfm
-ExecStart=/usr/local/bin/gordurasfm serve --config /etc/gordurasfm/config.toml
+User=ownfm
+Group=ownfm
+ExecStart=/usr/local/bin/ownfm serve --config /etc/ownfm/config.toml
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
@@ -19,7 +19,7 @@ LimitNOFILE=8192
 # Aislamiento (funciona en un LXC sin privilegios de Proxmox).
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/var/lib/gordurasfm
+ReadWritePaths=/var/lib/ownfm
 ProtectHome=yes
 PrivateTmp=yes
 ProtectControlGroups=yes

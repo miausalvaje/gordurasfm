@@ -1,17 +1,17 @@
-# API de GordurasFM
+# API de OwnFM
 
 Guía con ejemplos. La especificación OpenAPI 3.1 está en [`openapi.json`](openapi.json) y la sirve cada instalación en `GET /api/v1/openapi.json` (un test comprueba que documenta todas las rutas).
 
 ## Autenticación
 
-- **Web**: `POST /api/v1/auth/login` deja una cookie `gfm_session` (`HttpOnly`, `SameSite=Lax`, 30 días, se renueva con el uso).
+- **Web**: `POST /api/v1/auth/login` deja una cookie `ownfm_session` (`HttpOnly`, `SameSite=Lax`, 30 días, se renueva con el uso).
   Las peticiones que cambian algo (`POST`, `PUT`, `PATCH`, `DELETE`) con cookie deben llevar la cabecera `X-Requested-With` (con cualquier valor): protección CSRF.
 - **Integraciones**: `Authorization: Bearer <token>` con un token de tipo `api` (se crea en `POST /api/v1/tokens`). No necesita `X-Requested-With`.
 - Errores: `{"error": "codigo", "message": "texto en español"}` con `400`, `401`, `403`, `404`, `502` o `500`.
 
 ## Compatibilidad con ListenBrainz (`/1/`)
 
-Para Navidrome: `ND_LISTENBRAINZ_BASEURL=http://<gordurasfm>:8090/1/`. Cada usuario pega en *Navidrome → Personal → ListenBrainz* su token de escucha de GordurasFM, o su token real de ListenBrainz si ya lo tiene conectado en GordurasFM.
+Para Navidrome: `ND_LISTENBRAINZ_BASEURL=http://<ownfm>:8090/1/`. Cada usuario pega en *Navidrome → Personal → ListenBrainz* su token de escucha de OwnFM, o su token real de ListenBrainz si ya lo tiene conectado en OwnFM.
 
 | Método y ruta | Qué hace |
 |---|---|
@@ -114,7 +114,7 @@ Reenvío a Last.fm: lotes de 50 (`track.scrobble`). Last.fm no acepta escuchas d
 
 Formatos de fichero:
 - CSV de *lastfm-to-csv* sin cabecera: `artist,album,track,date` (fecha «14 Nov 2023 22:13», UTC).
-- CSV con cabecera: columnas `artist`, `track`/`name`/`title`, `album`, y fecha en `uts`/`played_at`/`timestamp`/`date`/`utc_time` (Unix, RFC 3339 o el formato de Last.fm). La exportación propia de GordurasFM también sirve.
+- CSV con cabecera: columnas `artist`, `track`/`name`/`title`, `album`, y fecha en `uts`/`played_at`/`timestamp`/`date`/`utc_time` (Unix, RFC 3339 o el formato de Last.fm). La exportación propia de OwnFM también sirve.
 - JSON: lista o una escucha por línea; formato de ListenBrainz (`listened_at` + `track_metadata`) o el propio (`played_at, artist, track, album`).
 
 Solo puede haber una importación en marcha por usuario. Las escuchas importadas no se reenvían a ningún sitio.

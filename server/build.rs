@@ -8,8 +8,8 @@ fn main() {
         fs::create_dir_all(dir).expect("crear ../web/build/web");
         fs::write(
             dir.join("index.html"),
-            "<!doctype html><meta charset=utf-8><title>GordurasFM</title>\
-             <p>GordurasFM está funcionando. La interfaz web todavía no se ha compilado.</p>",
+            "<!doctype html><meta charset=utf-8><title>OwnFM</title>\
+             <p>OwnFM está funcionando. La interfaz web todavía no se ha compilado.</p>",
         )
         .expect("escribir index.html provisional");
     }

@@ -1,7 +1,7 @@
 //! Resolución DNS propia para las peticiones salientes (Last.fm, ListenBrainz, Navidrome por nombre).
 //!
 //! El binario es estático (musl), así que no puede usar el resolutor del sistema de Android. Orden:
-//! 1. `GFM_DNS` (lista de IP separadas por comas), si está puesta.
+//! 1. `OWNFM_DNS` (lista de IP separadas por comas), si está puesta.
 //! 2. El primer `resolv.conf` con servidores: `/etc/resolv.conf` (Linux, Docker) o el de Termux
 //!    (`$PREFIX/etc/resolv.conf`).
 //! 3. Cloudflare (1.1.1.1 y 1.0.0.1).
@@ -34,7 +34,7 @@ pub enum Source {
 impl std::fmt::Display for Source {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Source::Env => write!(f, "GFM_DNS"),
+            Source::Env => write!(f, "OWNFM_DNS"),
             Source::File(p) => write!(f, "{}", p.display()),
             Source::Fallback => write!(f, "Cloudflare (1.1.1.1), no hay resolv.conf"),
         }
@@ -62,7 +62,7 @@ pub fn choose(env_dns: Option<&str>, files: &[PathBuf]) -> (ResolverConfig, Reso
         if !servers.is_empty() {
             return (ResolverConfig::from_parts(None, vec![], servers), ResolverOpts::default(), Source::Env);
         }
-        tracing::warn!(valor = list, "GFM_DNS no tiene ninguna IP válida; se ignora");
+        tracing::warn!(valor = list, "OWNFM_DNS no tiene ninguna IP válida; se ignora");
     }
     for f in files {
         let Ok(data) = std::fs::read(f) else { continue };
@@ -90,7 +90,7 @@ impl Resolver {
     async fn get(&self) -> Result<&TokioResolver, hickory_resolver::net::NetError> {
         self.inner
             .get_or_try_init(|| async {
-                let env = std::env::var("GFM_DNS").ok();
+                let env = std::env::var("OWNFM_DNS").ok().or_else(|| std::env::var("GFM_DNS").ok());
                 let (cfg, opts, source) = choose(env.as_deref(), &candidate_files());
                 tracing::info!(origen = %source, "DNS");
                 let mut b = TokioResolver::builder_with_config(cfg, TokioRuntimeProvider::default()).with_options(opts);
@@ -150,7 +150,7 @@ mod tests {
         assert_eq!(src, Source::File(termux));
         assert_eq!(ips(&cfg), vec!["192.168.1.1".parse::<IpAddr>().unwrap()]);
 
-        // GFM_DNS sin IP válidas se ignora.
+        // OWNFM_DNS sin IP válidas se ignora.
         let (cfg, _, src) = choose(Some("nada"), &[no_existe, vacio]);
         assert_eq!(src, Source::Fallback);
         assert!(ips(&cfg).contains(&"1.1.1.1".parse().unwrap()));

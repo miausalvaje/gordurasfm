@@ -1,29 +1,29 @@
-# Configuración de GordurasFM. Todo es opcional: estos son los valores por defecto.
-# Cada opción se puede sobrescribir con una variable de entorno GFM_* (entre paréntesis).
+# Configuración de OwnFM. Todo es opcional: estos son los valores por defecto.
+# Cada opción se puede sobrescribir con una variable de entorno OWNFM_* (entre paréntesis).
 
-listen = "0.0.0.0:8090"                 # (GFM_LISTEN)
-data_dir = "/var/lib/gordurasfm"        # (GFM_DATA_DIR) BD, imágenes y copias
-# master_key_file = "/etc/gordurasfm/master.key"   # (GFM_MASTER_KEY_FILE) por defecto <data_dir>/master.key
-public_url = "http://localhost:8090"    # (GFM_PUBLIC_URL) URL con la que se entra desde el navegador
-cookie_secure = "auto"                  # (GFM_COOKIE_SECURE) auto = solo si public_url es https
-default_timezone = "Europe/Madrid"      # (GFM_DEFAULT_TIMEZONE) zona de los usuarios nuevos
-registration = "open"                   # (GFM_REGISTRATION) open | approval
+listen = "0.0.0.0:8090"                 # (OWNFM_LISTEN)
+data_dir = "/var/lib/ownfm"        # (OWNFM_DATA_DIR) BD, imágenes y copias
+# master_key_file = "/etc/ownfm/master.key"   # (OWNFM_MASTER_KEY_FILE) por defecto <data_dir>/master.key
+public_url = "http://localhost:8090"    # (OWNFM_PUBLIC_URL) URL con la que se entra desde el navegador
+cookie_secure = "auto"                  # (OWNFM_COOKIE_SECURE) auto = solo si public_url es https
+default_timezone = "Europe/Madrid"      # (OWNFM_DEFAULT_TIMEZONE) zona de los usuarios nuevos
+registration = "open"                   # (OWNFM_REGISTRATION) open | approval
 
 [navidrome]
-url = "http://localhost:4533"           # (GFM_NAVIDROME_URL)
+url = "http://localhost:4533"           # (OWNFM_NAVIDROME_URL)
 
 [listenbrainz]
-api_url = "https://api.listenbrainz.org"   # (GFM_LISTENBRAINZ_API_URL)
-# Si llega un token que no es de ningún usuario de GordurasFM, se pasa tal cual a ListenBrainz.
-# Así los usuarios de Navidrome que no usan GordurasFM no notan el cambio de BaseURL.
+api_url = "https://api.listenbrainz.org"   # (OWNFM_LISTENBRAINZ_API_URL)
+# Si llega un token que no es de ningún usuario de OwnFM, se pasa tal cual a ListenBrainz.
+# Así los usuarios de Navidrome que no usan OwnFM no notan el cambio de BaseURL.
 passthrough_unknown_tokens = true
 
 [lastfm]
-api_url = "https://ws.audioscrobbler.com/2.0/"   # (GFM_LASTFM_API_URL)
+api_url = "https://ws.audioscrobbler.com/2.0/"   # (OWNFM_LASTFM_API_URL)
 auth_url = "https://www.last.fm/api/auth/"
 # Key de la instancia (https://www.last.fm/api/account/create). También se puede poner desde la web (admin).
-# api_key = "..."        # (GFM_LASTFM_API_KEY)
-# api_secret = "..."     # (GFM_LASTFM_API_SECRET) — mejor en variable de entorno que aquí.
+# api_key = "..."        # (OWNFM_LASTFM_API_KEY)
+# api_secret = "..."     # (OWNFM_LASTFM_API_SECRET) — mejor en variable de entorno que aquí.
 #                          Opcional: sin él solo se puede importar (no conectar cuentas ni reenviar).
 import_delay_ms = 250    # pausa entre páginas al importar
 

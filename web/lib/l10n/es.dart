@@ -4,7 +4,7 @@
 class T {
   T._();
 
-  static const app = 'GordurasFM';
+  static const app = 'OwnFM';
 
   // Navegación
   static const navInicio = 'Inicio';
@@ -83,7 +83,7 @@ class T {
   };
 
   // Perfil
-  static String miembroDesde(String f) => 'En GordurasFM desde $f';
+  static String miembroDesde(String f) => 'En OwnFM desde $f';
   static const enTotal = 'En total';
   static const recientes = 'Escuchado hace poco';
   static const wrapped = 'Wrapped';
@@ -99,7 +99,7 @@ class T {
 
   // Conexiones
   static const conexiones = 'Conexiones';
-  static const navidromeTitulo = 'Navidrome → GordurasFM';
+  static const navidromeTitulo = 'Navidrome → OwnFM';
   static const navidromeExplica =
       'Para que tus escuchas lleguen solas, pega un token de escucha en Navidrome: Ajustes personales → ListenBrainz.';
   static const navidromeAdmin =
@@ -150,7 +150,7 @@ class T {
   static const usuarioLfm = 'Usuario de Last.fm';
   static const importarFichero = 'Subir fichero (CSV o JSON)';
   static const importarFicheroExplica =
-      'Exportaciones de Last.fm (lastfm-to-csv), de ListenBrainz o de GordurasFM. Las repetidas no se duplican.';
+      'Exportaciones de Last.fm (lastfm-to-csv), de ListenBrainz o de OwnFM. Las repetidas no se duplican.';
   static const exportar = 'Exportar mi historial';
   static const trabajos = <String, String>{
     'lastfm_import': 'Importación de Last.fm',
