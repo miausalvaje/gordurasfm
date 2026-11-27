@@ -21,6 +21,12 @@ pub struct Config {
     pub default_timezone: String,
     /// `open` (cualquier usuario de Navidrome) o `approval` (lo aprueba un admin).
     pub registration: String,
+    /// Proxies inversos de confianza (IP o red CIDR). Solo a las conexiones que llegan desde ellos se les
+    /// cree la IP de `X-Forwarded-For` (para limitar los intentos de inicio de sesión por IP real).
+    pub trusted_proxies: Vec<String>,
+    /// `trusted_proxies` ya interpretado (lo rellena `validate`).
+    #[serde(skip)]
+    pub trusted_nets: Vec<crate::login_limit::IpNet>,
     pub navidrome: NavidromeConfig,
     pub listenbrainz: ListenBrainzConfig,
     pub lastfm: LastfmConfig,
@@ -119,6 +125,8 @@ impl Default for Config {
             cookie_secure: "auto".into(),
             default_timezone: "Europe/Madrid".into(),
             registration: "open".into(),
+            trusted_proxies: vec![],
+            trusted_nets: vec![],
             navidrome: NavidromeConfig::default(),
             listenbrainz: ListenBrainzConfig::default(),
             lastfm: LastfmConfig::default(),
@@ -194,6 +202,9 @@ impl Config {
         if let Some(v) = get("OWNFM_REGISTRATION") {
             self.registration = v;
         }
+        if let Some(v) = get("OWNFM_TRUSTED_PROXIES") {
+            self.trusted_proxies = v.split(',').map(str::trim).filter(|s| !s.is_empty()).map(str::to_string).collect();
+        }
         if let Some(v) = get("OWNFM_NAVIDROME_URL") {
             self.navidrome.url = v;
         }
@@ -223,6 +234,12 @@ impl Config {
             matches!(self.registration.as_str(), "open" | "approval"),
             "registration debe ser «open» o «approval»"
         );
+        self.trusted_nets = self
+            .trusted_proxies
+            .iter()
+            .map(|s| crate::login_limit::IpNet::parse(s))
+            .collect::<Result<_, _>>()
+            .map_err(|e| anyhow::anyhow!("trusted_proxies: {e}"))?;
         Ok(())
     }
 
@@ -283,6 +300,13 @@ mod tests {
         c.validate().unwrap();
         assert_eq!(c.navidrome.url, "http://nd:4533");
         assert_eq!(c.registration, "approval");
+        c.apply_env(|k| (k == "OWNFM_TRUSTED_PROXIES").then(|| "192.168.1.248, 10.0.0.0/8".into())).unwrap();
+        c.validate().unwrap();
+        assert_eq!(c.trusted_nets.len(), 2);
+        assert!(c.trusted_nets[1].contains(&"10.1.2.3".parse().unwrap()));
+        c.trusted_proxies = vec!["no-es-una-ip".into()];
+        assert!(c.validate().is_err());
+        c.trusted_proxies.clear();
         c.registration = "x".into();
         assert!(c.validate().is_err());
     }

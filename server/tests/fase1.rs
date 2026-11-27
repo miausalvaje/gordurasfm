@@ -82,7 +82,9 @@ async fn spawn() -> TestApp {
     let app = ownfm::app(st);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    tokio::spawn(async move {
+        axum::serve(listener, app.into_make_service_with_connect_info::<std::net::SocketAddr>()).await.unwrap()
+    });
 
     TestApp { base: format!("http://{addr}"), http: ownfm::http_client::build(), lb, _nd: nd }
 }
@@ -181,6 +183,44 @@ fn count(v: &Value, target: &str, status: &str) -> i64 {
 
 fn now() -> i64 {
     chrono::Utc::now().timestamp()
+}
+
+async fn login_raw(app: &TestApp, user: &str, pass: &str) -> reqwest::Response {
+    app.http
+        .post(format!("{}/api/v1/auth/login", app.base))
+        .header("X-Requested-With", "x")
+        .json(&json!({"username": user, "password": pass}))
+        .send()
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn limite_de_intentos_de_inicio_de_sesion() {
+    let app = spawn().await;
+    for _ in 0..ownfm::login_limit::MAX_ATTEMPTS {
+        assert_eq!(login_raw(&app, "ana", "mal").await.status(), 401);
+    }
+    // Agotados los intentos, ni con la contraseña buena (y sin preguntar a Navidrome).
+    let r = login_raw(&app, "ANA", "secreto").await;
+    assert_eq!(r.status(), 429);
+    let secs: u64 = r.headers()["retry-after"].to_str().unwrap().parse().unwrap();
+    assert!(secs > 0 && secs <= 15 * 60, "Retry-After = {secs}");
+    let v: Value = r.json().await.unwrap();
+    assert_eq!(v["error"], "too_many_requests");
+    // La misma IP también está bloqueada para otro usuario.
+    assert_eq!(login_raw(&app, "bea", "clave").await.status(), 429);
+}
+
+#[tokio::test]
+async fn cabeceras_de_seguridad() {
+    let app = spawn().await;
+    for p in ["/", "/api/v1/salud"] {
+        let r = app.http.get(format!("{}{p}", app.base)).send().await.unwrap();
+        assert_eq!(r.headers()["x-frame-options"], "DENY", "{p}");
+        assert_eq!(r.headers()["content-security-policy"], "frame-ancestors 'none'", "{p}");
+        assert_eq!(r.headers()["x-content-type-options"], "nosniff", "{p}");
+    }
 }
 
 #[tokio::test]

@@ -100,6 +100,13 @@ ownfm.example.com {
 }
 ```
 
+Antes de abrirlo a Internet:
+
+- **`trusted_proxies`** con la IP (o red) del proxy, p. ej. `trusted_proxies = ["192.168.1.248"]`. El inicio de sesión admite 10 intentos cada 15 min por IP y por usuario (cada intento es una consulta a Navidrome, así que sin límite serviría para adivinar contraseñas). Sin `trusted_proxies`, todo el mundo llega con la IP del proxy y comparte contador; OwnFM solo cree `X-Forwarded-For` si la conexión viene de un proxy de confianza.
+- **`/1/`** (lo que usa Navidrome para mandar escuchas) no hace falta fuera si Navidrome llega a OwnFM por la red local: ciérralo en el proxy. Con Nginx Proxy Manager, en *Advanced*: `location ^~ /1/ { return 404; }`. Si lo dejas abierto, cualquiera puede usar OwnFM para pasar peticiones a ListenBrainz (`passthrough_unknown_tokens`).
+- El proxy debe mandar `X-Forwarded-For` (Nginx Proxy Manager y Caddy lo hacen por defecto).
+- OwnFM ya responde con `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, `X-Content-Type-Options: nosniff` y `Referrer-Policy: same-origin`; HSTS ponlo en el proxy.
+
 ## 5. Copias de seguridad
 
 - **Automáticas**: una diaria y una semanal con `VACUUM INTO` (consistentes aunque esté recibiendo escuchas) en `backups/`; se guardan 7 y 4 (`[backup]` en la configuración).

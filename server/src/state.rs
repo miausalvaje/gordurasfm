@@ -42,6 +42,8 @@ pub struct Inner {
     /// Turno de escritura (cola justa): importaciones, escuchas en vivo y enriquecedor se turnan
     /// en vez de pelearse por el bloqueo de SQLite.
     pub write_lock: tokio::sync::Mutex<()>,
+    /// Intentos de inicio de sesión por IP y por usuario.
+    pub login_limiter: crate::login_limit::LoginLimiter,
 }
 
 pub type AppState = Arc<Inner>;
@@ -66,5 +68,6 @@ pub fn new(cfg: Config, db: Db, crypto: Crypto) -> AppState {
         jobs_wake: Notify::new(),
         enrich_wake: Notify::new(),
         write_lock: tokio::sync::Mutex::new(()),
+        login_limiter: Default::default(),
     })
 }

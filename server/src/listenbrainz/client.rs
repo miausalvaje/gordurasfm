@@ -39,7 +39,7 @@ impl ListenBrainz {
             .timeout(Duration::from_secs(15))
             .send()
             .await
-            .map_err(|e| format!("no se pudo contactar con ListenBrainz: {e}"))?;
+            .map_err(|e| format!("no se pudo contactar con ListenBrainz: {}", e.without_url()))?;
         let status = r.status();
         let body: Value = r.json().await.map_err(|e| format!("respuesta rara de ListenBrainz (HTTP {status}): {e}"))?;
         if body.get("valid").and_then(Value::as_bool) == Some(true) {

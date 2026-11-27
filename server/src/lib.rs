@@ -18,6 +18,7 @@ pub mod import_file;
 pub mod jobs;
 pub mod lastfm;
 pub mod listenbrainz;
+pub mod login_limit;
 pub mod media;
 pub mod normalize;
 pub mod periods;
@@ -54,6 +55,15 @@ pub fn app(st: AppState) -> Router {
         .layer(SetResponseHeaderLayer::if_not_present(
             axum::http::header::X_CONTENT_TYPE_OPTIONS,
             HeaderValue::from_static("nosniff"),
+        ))
+        // Nadie puede meter OwnFM en un marco (clickjacking).
+        .layer(SetResponseHeaderLayer::if_not_present(
+            axum::http::header::X_FRAME_OPTIONS,
+            HeaderValue::from_static("DENY"),
+        ))
+        .layer(SetResponseHeaderLayer::if_not_present(
+            axum::http::header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static("frame-ancestors 'none'"),
         ))
         .layer(SetResponseHeaderLayer::if_not_present(
             axum::http::header::REFERRER_POLICY,
