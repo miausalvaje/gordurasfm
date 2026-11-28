@@ -29,6 +29,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   List<dynamic> _queue = [];
   List<dynamic> _jobs = [];
   Map<String, dynamic> _lfm = {};
+  Map<String, dynamic> _sync = {};
   String? _newToken;
   bool _loaded = false;
   Object? _error;
@@ -72,6 +73,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
         api.get('/api/v1/forward/status'),
         api.get('/api/v1/import/jobs'),
         api.get('/api/v1/lastfm/status'),
+        api.get('/api/v1/import/lastfm/sync'),
       ]);
       if (!mounted) return;
       setState(() {
@@ -80,6 +82,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
         _queue = r[2] as List;
         _jobs = r[3] as List;
         _lfm = r[4] as Map<String, dynamic>;
+        _sync = r[5] as Map<String, dynamic>;
         _loaded = true;
         _error = null;
       });
@@ -498,6 +501,30 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                 ),
               ],
             ),
+            if ((_sync['interval_secs'] ?? 0) != 0) ...[
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text(T.sincronizarLfm),
+                subtitle: Text(
+                  _sync['enabled'] == true && _sync['last_error'] != null
+                      ? '${T.sincronizarLfmError}: ${_sync['last_error']}'
+                      : T.sincronizarLfmExplica,
+                  style: const TextStyle(fontSize: 12.5),
+                ),
+                value: _sync['enabled'] == true,
+                onChanged: _busy
+                    ? null
+                    : (v) => _run(() async {
+                        if (v) {
+                          await api.send('PUT', '/api/v1/import/lastfm/sync', {
+                            if (lfmConn == null) 'username': _lfmUser.text.trim(),
+                          });
+                        } else {
+                          await api.send('DELETE', '/api/v1/import/lastfm/sync');
+                        }
+                      }),
+              ),
+            ],
             const SizedBox(height: 18),
           ],
           Align(

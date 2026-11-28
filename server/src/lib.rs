@@ -82,6 +82,7 @@ pub fn app(st: AppState) -> Router {
 pub fn spawn_background(st: &AppState) {
     tokio::spawn(forward::run(st.clone()));
     tokio::spawn(jobs::run(st.clone()));
+    tokio::spawn(lastfm::sync::run(st.clone()));
     tokio::spawn(enrich::run(st.clone()));
     tokio::spawn(db::maintenance(st.db.clone()));
     tokio::spawn(wrapped::run(st.clone()));

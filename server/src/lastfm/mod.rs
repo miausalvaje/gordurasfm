@@ -1,6 +1,7 @@
 //! Last.fm: keys (instancia o propia del usuario), conexión de la cuenta y traducción de escuchas.
 
 pub mod client;
+pub mod sync;
 
 use axum::{
     Json,
