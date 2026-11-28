@@ -90,6 +90,10 @@ Con Navidrome en el mismo Compose: [`deploy/docker/compose.yaml`](../deploy/dock
 2. Cada usuario entra en OwnFM con su cuenta de Navidrome, va a *Conexiones y ajustes*, genera un **token de escucha** y lo pega en *Navidrome → Personal → ListenBrainz*.
 3. Si alguien ya enviaba a ListenBrainz, que conecte su token real en OwnFM: sus escuchas siguen llegando a ListenBrainz. Los usuarios que no usan OwnFM no notan nada: los tokens que no son de nadie se pasan tal cual a ListenBrainz.
 
+### Escuchar con otro reproductor (MusicBee, etc.)
+
+Si alguien escucha con un reproductor que no pasa por Navidrome (por ejemplo MusicBee con la música en un SMB) pero que scrobblea a Last.fm, puede activar **Sincronizar con Last.fm automáticamente** en *Conexiones y ajustes → Importar historial*. OwnFM trae lo nuevo de Last.fm cada 5 minutos (`lastfm.sync_interval_secs`, o `OWNFM_LASTFM_SYNC_INTERVAL_SECS`; 0 la desactiva). Hace falta la API key de Last.fm de la instancia (o una propia). Antes, conviene hacer una vez *Importar todo de Last.fm* para el historial anterior. Las portadas salen de Last.fm, salvo que el mismo Navidrome indexe esa música (entonces se emparejan por artista, título y álbum).
+
 ## 4. Acceso desde fuera (proxy inverso)
 
 Pon OwnFM detrás de tu proxy (Nginx Proxy Manager, Caddy, Traefik…) y cambia `public_url` a la URL `https://…`: las cookies pasan a ser `Secure` solas. No hace falta nada especial (no usa WebSocket). Ejemplo con Caddy:

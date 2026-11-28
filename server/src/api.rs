@@ -52,6 +52,10 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/wrapped/{year}/regenerate", post(wrapped::regenerate))
         .route("/api/v1/wrapped/answers/{id}", post(wrapped::answer))
         .route("/api/v1/import/lastfm", post(jobs::start_lastfm))
+        .route(
+            "/api/v1/import/lastfm/sync",
+            get(lastfm::sync::get_sync).put(lastfm::sync::put_sync).delete(lastfm::sync::delete_sync),
+        )
         .route("/api/v1/import/file", post(jobs::upload_file).layer(DefaultBodyLimit::max(jobs::MAX_UPLOAD)))
         .route("/api/v1/import/jobs", get(jobs::list))
         .route("/api/v1/import/jobs/{id}", get(jobs::get))

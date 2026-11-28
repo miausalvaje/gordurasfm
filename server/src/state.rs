@@ -37,6 +37,8 @@ pub struct Inner {
     pub forward_wake: Notify,
     /// Despierta al gestor de importaciones.
     pub jobs_wake: Notify,
+    /// Despierta la sincronización periódica con Last.fm (al activarla, para no esperar al siguiente ciclo).
+    pub lastfm_sync_wake: Notify,
     /// Despierta al enriquecedor (portadas e ids de Navidrome).
     pub enrich_wake: Notify,
     /// Turno de escritura (cola justa): importaciones, escuchas en vivo y enriquecedor se turnan
@@ -66,6 +68,7 @@ pub fn new(cfg: Config, db: Db, crypto: Crypto) -> AppState {
         now_playing: RwLock::new(HashMap::new()),
         forward_wake: Notify::new(),
         jobs_wake: Notify::new(),
+        lastfm_sync_wake: Notify::new(),
         enrich_wake: Notify::new(),
         write_lock: tokio::sync::Mutex::new(()),
         login_limiter: Default::default(),

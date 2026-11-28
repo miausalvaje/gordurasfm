@@ -2174,6 +2174,155 @@
           }
         ]
       }
+    },
+    "/api/v1/import/lastfm/sync": {
+      "get": {
+        "tags": [
+          "Importar"
+        ],
+        "summary": "Estado de la sincronización con Last.fm",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "username": {
+                      "type": "string"
+                    },
+                    "synced_to": {
+                      "type": "integer"
+                    },
+                    "last_run_at": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "last_error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "interval_secs": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Importar"
+        ],
+        "summary": "Activar la sincronización periódica con Last.fm",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "username": {
+                      "type": "string"
+                    },
+                    "synced_to": {
+                      "type": "integer"
+                    },
+                    "last_run_at": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "last_error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "interval_secs": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Importar"
+        ],
+        "summary": "Desactivar la sincronización con Last.fm",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "username": {
+                      "type": "string"
+                    },
+                    "synced_to": {
+                      "type": "integer"
+                    },
+                    "last_run_at": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "last_error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "interval_secs": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

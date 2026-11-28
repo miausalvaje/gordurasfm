@@ -148,6 +148,10 @@ class T {
   static const importarLfmTodo = 'Importar todo de Last.fm';
   static const importarLfmNuevo = 'Traer solo lo nuevo';
   static const usuarioLfm = 'Usuario de Last.fm';
+  static const sincronizarLfm = 'Sincronizar con Last.fm automáticamente';
+  static const sincronizarLfmExplica =
+      'Trae lo que scrobbleas en Last.fm (MusicBee u otro reproductor) cada pocos minutos. El historial anterior se trae con «Importar todo».';
+  static const sincronizarLfmError = 'Último intento fallido';
   static const importarFichero = 'Subir fichero (CSV o JSON)';
   static const importarFicheroExplica =
       'Exportaciones de Last.fm (lastfm-to-csv), de ListenBrainz o de OwnFM. Las repetidas no se duplican.';

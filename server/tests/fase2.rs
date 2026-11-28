@@ -93,6 +93,7 @@ async fn spawn_with(secret: bool) -> TestApp {
     cfg.lastfm.api_key = Some(LFM_KEY.into());
     cfg.lastfm.api_secret = secret.then(|| LFM_SECRET.into());
     cfg.lastfm.import_delay_ms = 0;
+    cfg.lastfm.sync_interval_secs = 1;
     cfg.enrich.enabled = false; // se llama a mano
     cfg.forward.base_delay_secs = 1;
     cfg.forward.max_delay_secs = 2;
@@ -367,6 +368,98 @@ async fn importar_de_lastfm_reanudable_y_solo_lo_nuevo() {
         .await;
     let (code, _) = app.send(&ana, reqwest::Method::POST, "/api/v1/import/lastfm", json!({"username": "nadie"})).await;
     assert_eq!(code, 400);
+}
+
+/// Espera (hasta 8 s) a que el historial del usuario tenga `n` escuchas.
+async fn wait_total(app: &TestApp, s: &S, n: i64) {
+    for _ in 0..80 {
+        let (_, h) = app.get(s, "/api/v1/scrobbles").await;
+        if h["total"] == n {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    panic!("el historial no llegó a {n} escuchas");
+}
+
+#[tokio::test]
+async fn sincronizar_con_lastfm_periodicamente() {
+    let app = spawn().await;
+    let ana = app.login("ana", "secreto").await;
+    let now = Utc::now().timestamp();
+    let mount_recent = |tracks: Vec<Value>, prio: u8| {
+        let lfm = &app.lfm;
+        async move {
+            Mock::given(method("GET"))
+                .and(query_param("method", "user.getRecentTracks"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(recent(tracks, 1, 1)))
+                .with_priority(prio)
+                .mount(lfm)
+                .await;
+        }
+    };
+    mount_recent(vec![lfm_track("Rosalía", "Saoko", "Motomami", now - 1000)], 5).await;
+
+    // Sin activar, no se sincroniza nada
+    let (_, st) = app.get(&ana, "/api/v1/import/lastfm/sync").await;
+    assert_eq!(st["enabled"], false);
+    // Hace falta un usuario de Last.fm (no hay cuenta conectada)
+    let (code, _) = app.send(&ana, reqwest::Method::PUT, "/api/v1/import/lastfm/sync", json!({})).await;
+    assert_eq!(code, 400);
+
+    let (code, st) =
+        app.send(&ana, reqwest::Method::PUT, "/api/v1/import/lastfm/sync", json!({"username": "analfm"})).await;
+    assert_eq!(code, 200, "{st}");
+    assert_eq!((st["enabled"].as_bool(), st["username"].as_str()), (Some(true), Some("AnaLfm")));
+    wait_total(&app, &ana, 1).await;
+    let (_, h) = app.get(&ana, "/api/v1/scrobbles").await;
+    assert_eq!(h["items"][0]["source"], "lastfm");
+    // Sin historial de Last.fm, empieza desde ahora con 24 h de margen
+    let reqs = app.lfm.received_requests().await.unwrap();
+    let first = reqs.iter().find(|r| r.url.query().unwrap_or("").contains("getRecentTracks")).unwrap();
+    let q: HashMap<String, String> = first.url.query_pairs().into_owned().collect();
+    let from: i64 = q["from"].parse().unwrap();
+    assert!((from - (now - 24 * 3600)).abs() < 10, "from = {from}");
+
+    // Llega una escucha nueva en Last.fm → aparece sola
+    mount_recent(
+        vec![
+            lfm_track("Bad Gyal", "Fiebre", "Slow Wine", now - 60),
+            lfm_track("Rosalía", "Saoko", "Motomami", now - 1000),
+        ],
+        3,
+    )
+    .await;
+    wait_total(&app, &ana, 2).await;
+    let (_, st) = app.get(&ana, "/api/v1/import/lastfm/sync").await;
+    assert!(st["last_run_at"].as_i64().is_some() && st["last_error"].is_null(), "{st}");
+
+    // Si Last.fm falla, se guarda el error y no se pierde nada; al volver, sigue
+    Mock::given(method("GET"))
+        .and(query_param("method", "user.getRecentTracks"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"error": 29, "message": "Rate limit exceeded"})))
+        .with_priority(1)
+        .up_to_n_times(2)
+        .mount(&app.lfm)
+        .await;
+    let mut err = Value::Null;
+    for _ in 0..80 {
+        let (_, st) = app.get(&ana, "/api/v1/import/lastfm/sync").await;
+        if !st["last_error"].is_null() {
+            err = st["last_error"].clone();
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert!(err.is_string(), "debería haber guardado el error");
+    let (_, h) = app.get(&ana, "/api/v1/scrobbles").await;
+    assert_eq!(h["total"], 2);
+
+    // Desactivar
+    let (code, st) = app.send(&ana, reqwest::Method::DELETE, "/api/v1/import/lastfm/sync", json!({})).await;
+    assert_eq!((code, &st["enabled"]), (200, &json!(false)));
+    let (_, st) = app.get(&ana, "/api/v1/import/lastfm/sync").await;
+    assert_eq!(st["enabled"], false);
 }
 
 #[tokio::test]

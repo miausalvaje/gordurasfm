@@ -105,6 +105,9 @@ Reenvío a Last.fm: lotes de 50 (`track.scrobble`). Last.fm no acepta escuchas d
 | Método y ruta | Cuerpo | Respuesta |
 |---|---|---|
 | `POST /api/v1/import/lastfm` | `{"mode": "full"\|"new", "username"?}` | el trabajo. `new` trae solo lo posterior a la última escucha importada (menos 1 h de margen) |
+| `GET /api/v1/import/lastfm/sync` | — | `{enabled, username, synced_to, last_run_at, last_error, interval_secs}` |
+| `PUT /api/v1/import/lastfm/sync` | `{username?}` (por defecto, la cuenta conectada) | igual que el GET. Activa la sincronización periódica |
+| `DELETE /api/v1/import/lastfm/sync` | — | `{enabled: false}` |
 | `POST /api/v1/import/file` | multipart, campo `file` (hasta 200 MB, UTF-8) | `{job, format, listens, invalid}` |
 | `GET /api/v1/import/jobs` | — | los últimos 50 trabajos |
 | `GET /api/v1/import/jobs/{id}` | — | `{id, kind, status, progress_done, progress_total, stats {stored, duplicates, ignored, invalid}, error}` |
@@ -116,6 +119,8 @@ Formatos de fichero:
 - CSV de *lastfm-to-csv* sin cabecera: `artist,album,track,date` (fecha «14 Nov 2023 22:13», UTC).
 - CSV con cabecera: columnas `artist`, `track`/`name`/`title`, `album`, y fecha en `uts`/`played_at`/`timestamp`/`date`/`utc_time` (Unix, RFC 3339 o el formato de Last.fm). La exportación propia de OwnFM también sirve.
 - JSON: lista o una escucha por línea; formato de ListenBrainz (`listened_at` + `track_metadata`) o el propio (`played_at, artist, track, album`).
+
+**Sincronización con Last.fm** (`.../import/lastfm/sync`): para quien escucha con un reproductor que no pasa por Navidrome (MusicBee, por ejemplo) pero scrobblea a Last.fm. Cada `lastfm.sync_interval_secs` (300 por defecto; 0 la desactiva) OwnFM pide a Last.fm lo posterior a la última sincronización menos 24 h (por si el reproductor envía scrobbles guardados sin conexión). No crea trabajos de importación. Al activarla empieza desde la última escucha importada de Last.fm o, si no hay ninguna, desde ahora: el historial anterior se trae con `POST /import/lastfm` en modo `full`. Si Last.fm falla, el error queda en `last_error` y se reintenta en la siguiente ronda.
 
 Solo puede haber una importación en marcha por usuario. Las escuchas importadas no se reenvían a ningún sitio.
 

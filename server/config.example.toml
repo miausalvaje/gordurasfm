@@ -29,6 +29,10 @@ auth_url = "https://www.last.fm/api/auth/"
 # api_secret = "..."     # (OWNFM_LASTFM_API_SECRET) — mejor en variable de entorno que aquí.
 #                          Opcional: sin él solo se puede importar (no conectar cuentas ni reenviar).
 import_delay_ms = 250    # pausa entre páginas al importar
+# Cada cuántos segundos se trae lo nuevo de Last.fm a quien active «Sincronizar con Last.fm»
+# (por ejemplo, para escuchar con MusicBee o cualquier otro reproductor que scrobblee a Last.fm).
+# 0 = desactivada.
+sync_interval_secs = 300   # (OWNFM_LASTFM_SYNC_INTERVAL_SECS)
 
 [enrich]
 enabled = true           # buscar portadas e ids de canciones en Navidrome

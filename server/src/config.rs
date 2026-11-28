@@ -60,6 +60,9 @@ pub struct LastfmConfig {
     pub api_secret: Option<String>,
     /// Pausa entre páginas al importar (ms). Last.fm pide no pasar de 5 peticiones/s.
     pub import_delay_ms: u64,
+    /// Cada cuántos segundos se trae lo nuevo de Last.fm a los usuarios que han activado la
+    /// sincronización. 0 = desactivada.
+    pub sync_interval_secs: u64,
 }
 
 impl Default for LastfmConfig {
@@ -70,6 +73,7 @@ impl Default for LastfmConfig {
             api_key: None,
             api_secret: None,
             import_delay_ms: 250,
+            sync_interval_secs: 300,
         }
     }
 }
@@ -219,6 +223,9 @@ impl Config {
         }
         if let Some(v) = get("OWNFM_LASTFM_API_SECRET") {
             self.lastfm.api_secret = Some(v);
+        }
+        if let Some(v) = get("OWNFM_LASTFM_SYNC_INTERVAL_SECS") {
+            self.lastfm.sync_interval_secs = v.parse().context("OWNFM_LASTFM_SYNC_INTERVAL_SECS")?;
         }
         Ok(())
     }

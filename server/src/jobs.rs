@@ -152,7 +152,7 @@ async fn run_job(st: &AppState, job: &Job) -> anyhow::Result<()> {
     }
 }
 
-async fn ingest_all(
+pub(crate) async fn ingest_all(
     st: &AppState,
     user_id: i64,
     listens: &[scrobble::Listen],
@@ -255,7 +255,7 @@ async fn run_file(st: &AppState, job: &Job, user_id: i64, mut stats: ImportStats
 
 // ---------- API ----------
 
-async fn active_job(st: &AppState, user_id: i64) -> sqlx::Result<Option<i64>> {
+pub(crate) async fn active_job(st: &AppState, user_id: i64) -> sqlx::Result<Option<i64>> {
     Ok(sqlx::query_as::<_, (i64,)>("SELECT id FROM jobs WHERE user_id = ? AND status IN ('queued', 'running') LIMIT 1")
         .bind(user_id)
         .fetch_optional(&st.db)
