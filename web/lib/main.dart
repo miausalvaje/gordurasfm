@@ -1,3 +1,4 @@
+import 'package:flutter/semantics.dart' show SemanticsBinding;
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:material_ui/material_ui.dart';
 
