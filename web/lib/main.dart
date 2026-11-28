@@ -9,6 +9,10 @@ import 'session.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
+  // En web Flutter pinta en canvas y solo crea el <input> al enfocar un campo,
+  // por lo que Bitwarden y otros gestores no ven el formulario. Con la
+  // semántica activa los campos existen siempre en el DOM.
+  SemanticsBinding.instance.ensureSemantics();
   final api = Api();
   final session = Session(api);
   await session.load();

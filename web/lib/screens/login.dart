@@ -83,6 +83,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextField(
                         controller: _user,
                         autofillHints: const [AutofillHints.username],
+                        keyboardType: TextInputType.text,
+                        autocorrect: false,
+                        enableSuggestions: false,
                         textInputAction: TextInputAction.next,
                         decoration: const InputDecoration(
                           labelText: T.loginUsuario,
@@ -94,6 +97,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _pass,
                         obscureText: true,
                         autofillHints: const [AutofillHints.password],
+                        autocorrect: false,
+                        enableSuggestions: false,
                         onSubmitted: (_) => _submit(),
                         decoration: const InputDecoration(
                           labelText: T.loginContrasena,
